@@ -10,5 +10,4 @@ GitHubのPull Request、CursorなどでのAIとの会話、自分の回答を学
 
 ## ドキュメント
 
-- [要件定義](docs/requirements.md)
-
+- [要件定義](requirements.md)
