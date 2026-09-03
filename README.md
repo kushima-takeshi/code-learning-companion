@@ -6,10 +6,11 @@ GitHubのPull Request、CursorなどでのAIとの会話、自分の回答を学
 
 ## 現在の段階
 
-要件定義中。実装前に、ユーザー体験・データの扱い・公開範囲を詰める。
+要件定義完了。MVP 実装計画を策定済み。実装はフェーズ 0（開発基盤）から着手予定。
 
 ## ドキュメント
 
 - [要件定義](requirements.md)
 - [将来アイデア・課題メモ](future-ideas.md)
 - [MVP詳細設計](docs/detailed-design.md)
+- [MVP実装計画](docs/implementation-plan.md)
