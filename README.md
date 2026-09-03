@@ -12,3 +12,4 @@ GitHubのPull Request、CursorなどでのAIとの会話、自分の回答を学
 
 - [要件定義](requirements.md)
 - [将来アイデア・課題メモ](future-ideas.md)
+- [MVP詳細設計](docs/detailed-design.md)
