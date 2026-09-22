@@ -14,7 +14,3 @@ GitHubのPull Request、CursorなどでのAIとの会話、自分の回答を学
 - [将来アイデア・課題メモ](future-ideas.md)
 - [MVP詳細設計](docs/detailed-design.md)
 - [MVP実装計画](docs/implementation-plan.md)
-
-## Go入門教材
-
-Java経験者向けのGo学習教材は [go-beginner-kit](go-beginner-kit/README.md) にあります。最初に [GO_BEGINNER_GUIDE.md](go-beginner-kit/GO_BEGINNER_GUIDE.md) を開いてください。実行は `go-beginner-kit` フォルダで行います。
