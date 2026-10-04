@@ -3,22 +3,26 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/kushima-takeshi/code-learning-companion/backend/internal/config"
+	"github.com/kushima-takeshi/code-learning-companion/backend/internal/db"
+	appmigrate "github.com/kushima-takeshi/code-learning-companion/backend/internal/migrate"
 	"log"
 	"net/http"
 	"time"
-	"github.com/kushima-takeshi/code-learning-companion/backend/internal/config"
-	"github.com/kushima-takeshi/code-learning-companion/backend/internal/db"
 )
 
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-    	log.Fatal(err)
+		log.Fatal(err)
 	}
 
+	if err := appmigrate.Up(cfg.DatabaseURL, "file://migrations"); err != nil {
+		log.Fatal(err)
+	}
 	database, err := db.Open(cfg.DatabaseURL)
 	if err != nil {
-    	log.Fatal(err)
+		log.Fatal(err)
 	}
 	defer database.Close()
 
@@ -36,9 +40,9 @@ func main() {
 	mux.HandleFunc("/health/db", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
-	
+
 		w.Header().Set("Content-Type", "application/json")
-	
+
 		if err := database.PingContext(ctx); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_ = json.NewEncoder(w).Encode(map[string]string{
@@ -47,7 +51,7 @@ func main() {
 			})
 			return
 		}
-	
+
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "ok",
 		})
@@ -59,5 +63,4 @@ func main() {
 		log.Fatal(err)
 	}
 
-	
 }
