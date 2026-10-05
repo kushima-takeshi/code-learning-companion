@@ -34,6 +34,41 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: clc-api
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://clc:clc@postgres:5432/clc?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - go_mod_cache:/go/pkg/mod
+    
+  frontend:
+    image: node:22-bookworm
+    container_name: clc-frontend
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8080
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm ci && npm run dev"
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
   minio_data:
+  go_mod_cache:
+  frontend_node_modules:
