@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/kushima-takeshi/code-learning-companion/backend/internal/config"
-	"github.com/kushima-takeshi/code-learning-companion/backend/internal/db"
-	appmigrate "github.com/kushima-takeshi/code-learning-companion/backend/internal/migrate"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/kushima-takeshi/code-learning-companion/backend/internal/config"
+	"github.com/kushima-takeshi/code-learning-companion/backend/internal/db"
+	appmigrate "github.com/kushima-takeshi/code-learning-companion/backend/internal/migrate"
 )
 
 func main() {
