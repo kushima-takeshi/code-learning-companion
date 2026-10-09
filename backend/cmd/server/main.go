@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/kushima-takeshi/code-learning-companion/backend/internal/auth"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/config"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/db"
 	appmigrate "github.com/kushima-takeshi/code-learning-companion/backend/internal/migrate"
@@ -27,7 +28,13 @@ func main() {
 	}
 	defer database.Close()
 
+	authStore := auth.NewStore(database)
+	authHandler := auth.NewHandler(cfg, authStore)
+
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("GET /auth/github/login", authHandler.GitHubLogin)
+	mux.HandleFunc("GET /auth/github/callback", authHandler.GitHubCallback)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

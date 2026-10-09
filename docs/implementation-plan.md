@@ -128,6 +128,16 @@ flowchart TB
 - 認証ミドルウェア: 未ログインは学習 API を 401
 - ログアウト: セッション無効化
 
+**後で行うリファクタリング:**
+
+- [ ] 手順 5（ログイン開始・コールバック）の実装後、`backend/internal/auth/github.go` の `FetchGitHubUser` 内部を分割する。公開関数の引数・戻り値は維持し、非公開関数 `exchangeGitHubCode` に認可コードとアクセストークンの交換、`fetchGitHubProfile` にプロフィール取得を担当させる。`FetchGitHubUser` はこの 2 つを順に呼び出す。3 関数は同じファイルに置き、アクセストークンをコールバック側へ返さず、認可コード・トークンをログや DB に残さない方針を維持する。分割後は各 API のリクエストと成功・失敗時の処理を個別にテストする。
+
+- [ ] GitHub 通信の分割後、`GitHubCallback` からログイン処理を `auth.Service` へ分離する。Service はプロフィール取得、ユーザー保存、セッショントークン生成、有効期限の決定、セッション保存を担当する。Handler はクエリ・Cookie の読み取り、state 検証、HTTP エラー応答、Cookie 発行、リダイレクトを担当する。`sql.NullString` への変換も Handler の外へ移し、Service は `http.ResponseWriter` や `*http.Request` に依存させない。HTTP を介さずログイン処理の成功・失敗をテストできるようにする。
+- [ ] `oauth_state` Cookie の発行・削除と `session` Cookie の発行を、Handler 側の補助関数に整理する。Path・HttpOnly・SameSite・Secure などの設定をそろえ、state Cookie を成功・失敗どちらでも削除すること、DB と session Cookie の有効期限が一致することを維持する。
+- [ ] 優先度低: `main.go` 内のヘルスチェックハンドラと CORS 処理を分離し、`main` は設定読み込み・依存関係の組み立て・ルート登録・サーバー起動を中心にする。
+
+現時点では `Store` は認証関連の DB 操作として維持し、ユーザー用・セッション用への構造体分割は行わない。ファイルの移動だけでなく、処理が依存する情報と判断の責任を整理する。
+
 **フロントエンド:**
 
 - ログイン / ログアウト UI
