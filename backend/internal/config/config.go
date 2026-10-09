@@ -6,9 +6,12 @@ import (
 )
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	CORSOrigin  string
+	Port               string
+	DatabaseURL        string
+	CORSOrigin         string
+	GitHubClientID     string
+	GitHubClientSecret string
+	GitHubCallbackURL  string
 }
 
 func Load() (Config, error) {
@@ -27,9 +30,27 @@ func Load() (Config, error) {
 		corsOrigin = "http://localhost:5173"
 	}
 
+	githubClientID := os.Getenv("GITHUB_CLIENT_ID")
+	if githubClientID == "" {
+		return Config{}, fmt.Errorf("GITHUB_CLIENT_ID is required")
+	}
+
+	githubClientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
+	if githubClientSecret == "" {
+		return Config{}, fmt.Errorf("GITHUB_CLIENT_SECRET is required")
+	}
+
+	githubCallbackURL := os.Getenv("GITHUB_CALLBACK_URL")
+	if githubCallbackURL == "" {
+		return Config{}, fmt.Errorf("GITHUB_CALLBACK_URL is required")
+	}
+
 	return Config{
-		Port:        port,
-		DatabaseURL: databaseURL,
-		CORSOrigin:  corsOrigin,
+		Port:               port,
+		DatabaseURL:        databaseURL,
+		CORSOrigin:         corsOrigin,
+		GitHubClientID:     githubClientID,
+		GitHubClientSecret: githubClientSecret,
+		GitHubCallbackURL:  githubCallbackURL,
 	}, nil
 }
