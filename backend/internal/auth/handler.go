@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"time"
@@ -14,6 +15,13 @@ import (
 type Handler struct {
 	cfg   config.Config
 	store *Store
+}
+
+type meResponse struct {
+	ID          string  `json:"id"`
+	GitHubLogin string  `json:"github_login"`
+	DisplayName *string `json:"display_name"`
+	AvatarURL   *string `json:"avatar_url"`
 }
 
 func NewHandler(cfg config.Config, store *Store) *Handler {
@@ -174,4 +182,28 @@ func (h *Handler) GitHubCallback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	http.Redirect(w, r, h.cfg.CORSOrigin, http.StatusFound)
+}
+
+func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		writeUnauthorized(w)
+		return
+	}
+
+	response := meResponse{
+		ID:          user.ID,
+		GitHubLogin: user.GitHubLogin,
+	}
+
+	if user.DisplayName.Valid {
+		response.DisplayName = &user.DisplayName.String
+	}
+	if user.AvatarURL.Valid {
+		response.AvatarURL = &user.AvatarURL.String
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(response)
 }
