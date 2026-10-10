@@ -36,6 +36,11 @@ func main() {
 	mux.HandleFunc("GET /auth/github/login", authHandler.GitHubLogin)
 	mux.HandleFunc("GET /auth/github/callback", authHandler.GitHubCallback)
 
+	mux.Handle(
+		"GET /auth/me",
+		authHandler.RequireAuth(http.HandlerFunc(authHandler.Me)),
+	)
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(map[string]string{
