@@ -35,6 +35,7 @@ func main() {
 
 	mux.HandleFunc("GET /auth/github/login", authHandler.GitHubLogin)
 	mux.HandleFunc("GET /auth/github/callback", authHandler.GitHubCallback)
+	mux.HandleFunc("POST /auth/logout", authHandler.Logout)
 
 	mux.Handle(
 		"GET /auth/me",
