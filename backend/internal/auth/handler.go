@@ -207,3 +207,31 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(response)
 }
+
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session")
+	if err == nil && cookie.Value != "" {
+		tokenHash := HashToken(cookie.Value)
+
+		if err := h.store.DeleteSession(r.Context(), tokenHash); err != nil {
+			http.Error(
+				w,
+				"failed to delete session",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		Expires:  time.Unix(1, 0),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	w.WriteHeader(http.StatusOK)
+}
