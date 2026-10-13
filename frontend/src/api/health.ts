@@ -2,7 +2,7 @@ export type HealthResponse = {
   status: string
 }
 
-function apiBaseURL(): string {
+export function apiBaseURL(): string {
   const configured = import.meta.env.VITE_API_URL
   if (typeof configured === "string" && configured.length > 0) {
     return configured.replace(/\/$/, "")
