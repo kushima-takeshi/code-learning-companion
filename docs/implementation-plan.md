@@ -160,7 +160,7 @@ flowchart TB
 | エンティティ | PostgreSQL | Object Storage |
 |---|---|---|
 | PRSnapshot | メタデータ、head SHA、状態 | 本文、差分、レビューコメント |
-| CursorUpload | ファイル名、関連 PR | Markdown 本文 |
+| ConversationUpload | ファイル名、関連 PR | Markdown 本文 |
 
 **バックエンド:**
 
@@ -168,19 +168,19 @@ flowchart TB
 - GitHub REST API: PR 詳細、diff、files、commits、review comments
 - 周辺コード取得（差分不足時のみ、仕様の3段階）
 - エラー種別: 形式不正 / 非公開・不存在 / API 一時エラー
-- 任意: Cursor Markdown アップロード（multipart）
+- 任意: 会話 Markdown のアップロード（multipart）
 
 **フロントエンド:**
 
 - PR URL 入力フォーム
-- Cursor ファイル任意アップロード
+- 会話ファイルの任意アップロード
 - 取り込み進捗・エラー表示
 
 **受け入れ条件:**
 
 - 公開 PR を URL で取り込める
 - 取り込み後 GitHub 上の PR が変わってもスナップショットは不変
-- Cursor なしでも取り込める
+- 会話ファイルなしでも取り込める
 
 ### 未決課題（2026-10-14 レビュー）
 
@@ -231,7 +231,7 @@ sequenceDiagram
 
 - API キーは **リクエストヘッダーで受け取り、保存・ログ出力しない**（[requirements.md](../requirements.md) §10）
 - OpenAI Structured Outputs で候補・問題・フィードバック JSON を生成し、**根拠参照なしは保存拒否**
-- 設計意図問題は根拠（PR本文、レビュー、Cursor会話）がある場合のみ
+- 設計意図問題は根拠（PR本文、レビュー、取り込んだ会話）がある場合のみ
 - 問題セット: 選択肢 → 自由記述 → コード記述（2〜3問）
 - 理解度: `できた` / `一部できた` / `もう一度` / `判定保留`
 - エラー区別: キー無効 / 上限・残高 / 通信 / 出力形式不正
@@ -239,7 +239,7 @@ sequenceDiagram
 **フロントエンド:**
 
 - API キー入力モーダル（初回 LLM 利用時）
-- 送信同意ダイアログ（PR + Cursor 内容の明示）
+- 送信同意ダイアログ（PR と会話の内容の明示）
 - 候補一覧（最大3件）→ 1件選択
 - 問題解答 UI、根拠表示（`この問題の根拠を見る`）、フィードバック
 
@@ -305,7 +305,7 @@ sequenceDiagram
 
 **PR 単位削除:**
 
-- カスケード削除: スナップショット、候補、問題、回答、復習、深掘り、Cursor ファイル
+- カスケード削除: スナップショット、候補、問題、回答、復習、深掘り、会話ファイル
 - Object Storage 上の本文も削除
 - 最終確認ダイアログ（復元不可）
 
@@ -335,7 +335,7 @@ sequenceDiagram
 users
 sessions
 pr_snapshots
-cursor_uploads
+conversation_uploads
 learning_candidates
 learning_sets
 questions

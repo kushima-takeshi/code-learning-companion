@@ -19,7 +19,7 @@ React + TypeScript → Go API → PostgreSQL / Object Storage
 | 実装順 | 仕様書 | 対象 |
 |---:|---|---|
 | 1 | [01-authentication.md](specs/01-authentication.md) | GitHub OAuthとユーザー分離 |
-| 2 | [02-public-pr-import.md](specs/02-public-pr-import.md) | 公開PR URL・Cursorファイルの取り込み |
+| 2 | [02-public-pr-import.md](specs/02-public-pr-import.md) | 公開PR URL・会話ファイルの取り込み |
 | 3 | [03-learning-questions.md](specs/03-learning-questions.md) | OpenAI BYOK、候補、問題、回答、フィードバック |
 | 4 | [04-review.md](specs/04-review.md) | 復習予定・再出題 |
 | 5 | [05-deep-dive.md](specs/05-deep-dive.md) | 自由対話と会話ログ |
