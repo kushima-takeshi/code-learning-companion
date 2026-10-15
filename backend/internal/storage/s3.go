@@ -75,3 +75,15 @@ func (s *Storage) Put(
 
 	return nil
 }
+
+func (s *Storage) Delete(ctx context.Context, key string) error {
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return fmt.Errorf("delete object %q: %w", key, err)
+	}
+
+	return nil
+}
