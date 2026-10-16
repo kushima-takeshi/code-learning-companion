@@ -11,6 +11,7 @@ import (
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/config"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/db"
 	appmigrate "github.com/kushima-takeshi/code-learning-companion/backend/internal/migrate"
+	"github.com/kushima-takeshi/code-learning-companion/backend/internal/storage"
 )
 
 func main() {
@@ -27,6 +28,23 @@ func main() {
 		log.Fatal(err)
 	}
 	defer database.Close()
+
+	objectStorage := storage.New(
+		cfg.S3Endpoint,
+		cfg.S3AccessKey,
+		cfg.S3SecretKey,
+		cfg.S3Bucket,
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	err = objectStorage.EnsureBucket(ctx)
+	cancel()
+
+	if err != nil {
+		log.Fatalf("initialize object storage: %v", err)
+	}
+
+	log.Printf("storage bucket %q is ready", cfg.S3Bucket)
 
 	authStore := auth.NewStore(database)
 	authHandler := auth.NewHandler(cfg, authStore)
