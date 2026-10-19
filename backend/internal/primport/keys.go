@@ -8,8 +8,8 @@ type snapshotKeys struct {
 	ReviewComments string
 }
 
-func buildSnapshotKeys(snapshotID string) snapshotKeys {
-	prefix := "pr-snapshots/" + snapshotID + "/"
+func buildSnapshotKeys(userID, snapshotID string) snapshotKeys {
+	prefix := userID + "/pr-snapshots/" + snapshotID + "/"
 
 	return snapshotKeys{
 		Body:           prefix + "body.md",
