@@ -1,13 +1,10 @@
 package github
 
 import (
-	"errors"
 	"net/url"
 	"strconv"
 	"strings"
 )
-
-var ErrInvalidURL = errors.New("invalid_url")
 
 func ParsePRURL(raw string) (owner, repo string, number int, err error) {
 	u, err := url.Parse(raw)

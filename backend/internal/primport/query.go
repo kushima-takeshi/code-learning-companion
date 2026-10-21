@@ -7,8 +7,6 @@ import (
 	"fmt"
 )
 
-var ErrSnapshotNotFound = errors.New("snapshot_not_found")
-
 func (s *Service) List(
 	ctx context.Context,
 	userID string,

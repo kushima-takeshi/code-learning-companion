@@ -10,7 +10,9 @@ import (
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/auth"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/config"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/db"
+	"github.com/kushima-takeshi/code-learning-companion/backend/internal/github"
 	appmigrate "github.com/kushima-takeshi/code-learning-companion/backend/internal/migrate"
+	"github.com/kushima-takeshi/code-learning-companion/backend/internal/primport"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/storage"
 )
 
@@ -48,6 +50,9 @@ func main() {
 
 	authStore := auth.NewStore(database)
 	authHandler := auth.NewHandler(cfg, authStore)
+	githubClient := github.NewClient(cfg.GitHubToken)
+	importService := primport.New(database, githubClient, objectStorage)
+	importHandler := primport.NewHandler(importService)
 
 	mux := http.NewServeMux()
 
@@ -58,6 +63,21 @@ func main() {
 	mux.Handle(
 		"GET /auth/me",
 		authHandler.RequireAuth(http.HandlerFunc(authHandler.Me)),
+	)
+
+	mux.Handle(
+		"POST /pr-snapshots",
+		authHandler.RequireAuth(http.HandlerFunc(importHandler.Create)),
+	)
+
+	mux.Handle(
+		"GET /pr-snapshots",
+		authHandler.RequireAuth(http.HandlerFunc(importHandler.List)),
+	)
+
+	mux.Handle(
+		"GET /pr-snapshots/{id}",
+		authHandler.RequireAuth(http.HandlerFunc(importHandler.Get)),
 	)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
