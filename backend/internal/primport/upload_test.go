@@ -29,7 +29,7 @@ func TestReadUpload(t *testing.T) {
 		{name: "absent", absent: true},
 		{name: "markdown", filename: "notes.md", body: "# 会話\nhello"},
 		{name: "uppercase_extension", filename: "notes.MD", body: "hello"},
-		{name: "empty_markdown", filename: "notes.md"},
+		{name: "empty_markdown", filename: "notes.md", wantWarning: "empty_file"},
 		{name: "exactly_1MiB", filename: "notes.md", body: strings.Repeat("a", 1024*1024)},
 		{name: "over_1MiB", filename: "notes.md", body: strings.Repeat("a", 1024*1024+1), wantWarning: "file_too_large"},
 		{name: "wrong_extension", filename: "notes.txt", body: "hello", wantWarning: "invalid_file_extension"},

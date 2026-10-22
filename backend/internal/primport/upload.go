@@ -25,6 +25,10 @@ func readUpload(file *UploadFile) ([]byte, string) {
 		return nil, "file_read_failed"
 	}
 
+	if len(content) == 0 {
+		return nil, "empty_file"
+	}
+
 	if len(content) > maxUploadBytes {
 		return nil, "file_too_large"
 	}

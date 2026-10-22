@@ -20,7 +20,7 @@ type queryRows struct {
 }
 
 func (r *queryRows) Columns() []string {
-	return []string{"id", "html_url", "owner", "repo", "pr_number", "title", "author_login", "state", "created_at"}
+	return []string{"id", "html_url", "owner", "repo", "pr_number", "title", "author_login", "state", "head_sha", "created_at"}
 }
 func (r *queryRows) Close() error { r.closed = true; return nil }
 func (r *queryRows) Next(dest []driver.Value) error {
@@ -35,22 +35,22 @@ func (r *queryRows) Next(dest []driver.Value) error {
 	return nil
 }
 func summaryValues(s SnapshotSummary) []driver.Value {
-	return []driver.Value{s.ID, s.HTMLURL, s.Owner, s.Repo, int64(s.PRNumber), s.Title, s.AuthorLogin, s.State, s.CreatedAt}
+	return []driver.Value{s.ID, s.HTMLURL, s.Owner, s.Repo, int64(s.PRNumber), s.Title, s.AuthorLogin, s.State, s.HeadSHA, s.CreatedAt}
 }
 
 func TestListUsesUserFilterAndReturnsSummaries(t *testing.T) {
 	s, fetcher, store, db := testService(t)
 	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
 	want := []SnapshotSummary{
-		{ID: "new-id", HTMLURL: "https://github.com/owner/new/pull/9", Owner: "owner", Repo: "new", PRNumber: 9, Title: "New PR", AuthorLogin: "alice", State: "open", CreatedAt: now},
-		{ID: "old-id", HTMLURL: "https://github.com/other/old/pull/3", Owner: "other", Repo: "old", PRNumber: 3, Title: "Old PR", AuthorLogin: "bob", State: "closed", CreatedAt: now.Add(-time.Hour)},
+		{ID: "new-id", HTMLURL: "https://github.com/owner/new/pull/9", Owner: "owner", Repo: "new", PRNumber: 9, Title: "New PR", AuthorLogin: "alice", State: "open", HeadSHA: "new-head-sha", CreatedAt: now},
+		{ID: "old-id", HTMLURL: "https://github.com/other/old/pull/3", Owner: "other", Repo: "old", PRNumber: 3, Title: "Old PR", AuthorLogin: "bob", State: "closed", HeadSHA: "old-head-sha", CreatedAt: now.Add(-time.Hour)},
 	}
 	calls := 0
 	var returnedRows []*queryRows
 	db.query = func(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 		calls++
 		normalized := strings.Join(strings.Fields(query), " ")
-		expected := "SELECT id, html_url, owner, repo, pr_number, title, author_login, state, created_at FROM pr_snapshots WHERE user_id = $1 ORDER BY created_at DESC"
+		expected := "SELECT id, html_url, owner, repo, pr_number, title, author_login, state, head_sha, created_at FROM pr_snapshots WHERE user_id = $1 ORDER BY created_at DESC, id DESC"
 		if normalized != expected {
 			t.Errorf("unexpected SQL: %s", normalized)
 		}
@@ -145,14 +145,14 @@ func TestGetUsesSnapshotAndUserFilter(t *testing.T) {
 	want := SnapshotSummary{
 		ID: "snapshot-id", HTMLURL: "https://github.com/owner/repo/pull/7",
 		Owner: "owner", Repo: "repo", PRNumber: 7, Title: "PR title",
-		AuthorLogin: "author", State: "open",
+		AuthorLogin: "author", State: "open", HeadSHA: "saved-head-sha",
 		CreatedAt: time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC),
 	}
 	rows := &queryRows{values: [][]driver.Value{summaryValues(want)}}
 	calls := 0
 	db.query = func(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 		calls++
-		expected := "SELECT id, html_url, owner, repo, pr_number, title, author_login, state, created_at FROM pr_snapshots WHERE id = $1 AND user_id = $2"
+		expected := "SELECT id, html_url, owner, repo, pr_number, title, author_login, state, head_sha, created_at FROM pr_snapshots WHERE id = $1 AND user_id = $2"
 		if normalized := strings.Join(strings.Fields(query), " "); normalized != expected {
 			t.Errorf("unexpected SQL: %s", normalized)
 		}

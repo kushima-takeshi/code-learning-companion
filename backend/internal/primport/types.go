@@ -25,8 +25,13 @@ type storedFile struct {
 }
 
 type ImportResult struct {
-	SnapshotID string
-	Warning    string
+	SnapshotID           string
+	Warning              string
+	ConversationFilename *string
+	Title                string
+	HTMLURL              string
+	HeadSHA              string
+	ChangedFiles         []string
 }
 
 type SnapshotSummary struct {
@@ -38,5 +43,6 @@ type SnapshotSummary struct {
 	Title       string
 	AuthorLogin string
 	State       string
+	HeadSHA     string
 	CreatedAt   time.Time
 }

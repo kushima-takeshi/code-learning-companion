@@ -45,11 +45,25 @@ func TestImportSuccess(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if result.Title != fetcher.snapshot.Title || result.HTMLURL != fetcher.snapshot.HTMLURL || result.HeadSHA != fetcher.snapshot.HeadSHA {
+				t.Fatalf("import result differs from saved PR metadata: %+v", result)
+			}
+			wantFiles := []string{"src/main.go", "empty.txt", "removed.go"}
+			if !reflect.DeepEqual(result.ChangedFiles, wantFiles) {
+				t.Fatalf("changed files=%v, want %v", result.ChangedFiles, wantFiles)
+			}
 			if _, err := uuid.Parse(result.SnapshotID); err != nil {
 				t.Fatal(err)
 			}
 			if result.Warning != "" || len(store.objects) != wantPuts || len(store.deletes) != 0 {
 				t.Fatalf("unexpected result/storage: %+v objects=%d deletes=%v", result, len(store.objects), store.deletes)
+			}
+			if withConversation {
+				if result.ConversationFilename == nil || *result.ConversationFilename != input.File.Filename {
+					t.Fatalf("saved conversation filename missing or changed: %+v", result)
+				}
+			} else if result.ConversationFilename != nil {
+				t.Fatal("absent conversation returned a filename")
 			}
 			prefix := input.UserID + "/pr-snapshots/" + result.SnapshotID + "/"
 			checks := map[string]savedObject{
@@ -148,6 +162,7 @@ func TestImportInvalidConversationContinues(t *testing.T) {
 		{"size", "notes.md", strings.Repeat("x", 1024*1024+1), "file_too_large", false},
 		{"nul", "notes.md", "a\x00b", "file_contains_nul", false},
 		{"read", "notes.md", "", "file_read_failed", true},
+		{"empty", "notes.md", "", "empty_file", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -164,28 +179,15 @@ func TestImportInvalidConversationContinues(t *testing.T) {
 			if result.Warning != tt.warning || fetcher.calls != 1 || len(db.committed) != 1 || len(store.objects) != 7 {
 				t.Fatalf("warning/continuation failed: result=%+v", result)
 			}
+			if result.ConversationFilename != nil {
+				t.Fatal("invalid conversation returned a saved filename")
+			}
 			for key := range store.objects {
 				if strings.Contains(key, "conversation-uploads") {
 					t.Fatal("invalid conversation saved")
 				}
 			}
 		})
-	}
-}
-
-func TestImportEmptyConversationIsSaved(t *testing.T) {
-	s, _, store, db := testService(t)
-	input := testInput()
-	input.File = conversationFile("")
-	if _, err := s.Import(context.Background(), input); err != nil {
-		t.Fatal(err)
-	}
-	if len(db.committed) != 2 {
-		t.Fatal("empty valid conversation was skipped")
-	}
-	key := db.committed[1].args[4].Value.(string)
-	if obj, ok := store.objects[key]; !ok || obj.body != "" {
-		t.Fatal("empty conversation not saved correctly")
 	}
 }
 
@@ -309,5 +311,21 @@ func TestImportFilesJSONEmptyArray(t *testing.T) {
 	key := testInput().UserID + "/pr-snapshots/" + result.SnapshotID + "/files.json"
 	if store.objects[key].body != "[]" {
 		t.Fatalf("empty files JSON=%q", store.objects[key].body)
+	}
+}
+
+func TestImportNoChangedFilesReturnsEmptyArray(t *testing.T) {
+	s, fetcher, _, _ := testService(t)
+	fetcher.snapshot.Files = nil
+	result, err := s.Import(context.Background(), testInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(result.ChangedFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "[]" {
+		t.Fatalf("changed files JSON=%s, want []", body)
 	}
 }
