@@ -138,24 +138,24 @@ function App() {
       }
     } catch (err: unknown) {
       const code = err instanceof Error ? err.message : ""
-    
+
       switch (code) {
         case "invalid_url":
           setImportError("GitHub の公開 PR の URL を入力してください")
           break
-    
+
         case "pr_not_found":
           setImportError(
             "公開 PR のみ対応しています。URL と公開状態を確認してください",
           )
           break
-    
+
         case "github_unavailable":
           setImportError(
             "GitHub から取得できませんでした。時間をおいて再試行してください",
           )
           break
-    
+
         default:
           setImportError("取り込みできませんでした")
       }
@@ -255,11 +255,45 @@ function App() {
               {importError && <p role="alert">{importError}</p>}
 
               {importResult && (
-                <p role="status">
-                  {importResult.warning
-                    ? "PR は保存しました。Markdown を選び直してください"
-                    : "PR を保存しました"}
-                </p>
+                <div>
+                  <p role="status">
+                    {importResult.warning
+                      ? "PR は保存しました。Markdown を選び直してください"
+                      : "PR を保存しました"}
+                  </p>
+                  <h3>{importResult.title}</h3>
+
+                  <p>
+                    <a
+                      href={importResult.html_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {importResult.html_url}
+                    </a>
+                  </p>
+
+                  <p>
+                    head SHA：<code>{importResult.head_sha}</code>
+                  </p>
+                  <h4>変更ファイル</h4>
+
+                  {importResult.changed_files.length === 0 ? (
+                    <p>変更ファイルはありません</p>
+                  ) : (
+                    <ul>
+                      {importResult.changed_files.map((filename) => (
+                        <li key={filename}>
+                          <code>{filename}</code>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p>
+                    会話ファイル：
+                    {importResult.conversation_filename ?? "保存なし"}
+                  </p>
+                </div>
               )}
             </form>
           </section>
@@ -284,6 +318,9 @@ function App() {
                       {snapshot.Title}
                     </a>
                     <p>{snapshot.HTMLURL}</p>
+                    <p>
+                      head SHA：<code>{snapshot.HeadSHA}</code>
+                    </p>
                     <p>
                       取り込み日時：
                       {new Date(snapshot.CreatedAt).toLocaleString()}

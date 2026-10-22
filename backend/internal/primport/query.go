@@ -16,10 +16,10 @@ func (s *Service) List(
 		`
 		SELECT
 			id, html_url, owner, repo, pr_number,
-			title, author_login, state, created_at
+			title, author_login, state, head_sha, created_at
 		FROM pr_snapshots
 		WHERE user_id = $1
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 		`,
 		userID,
 	)
@@ -42,6 +42,7 @@ func (s *Service) List(
 			&snapshot.Title,
 			&snapshot.AuthorLogin,
 			&snapshot.State,
+			&snapshot.HeadSHA,
 			&snapshot.CreatedAt,
 		)
 		if err != nil {
@@ -70,7 +71,7 @@ func (s *Service) Get(
 		`
 		SELECT
 			id, html_url, owner, repo, pr_number,
-			title, author_login, state, created_at
+			title, author_login, state, head_sha, created_at
 		FROM pr_snapshots
 		WHERE id = $1 AND user_id = $2
 		`,
@@ -85,6 +86,7 @@ func (s *Service) Get(
 		&snapshot.Title,
 		&snapshot.AuthorLogin,
 		&snapshot.State,
+		&snapshot.HeadSHA,
 		&snapshot.CreatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {

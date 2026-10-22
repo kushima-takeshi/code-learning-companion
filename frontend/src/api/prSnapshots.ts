@@ -3,6 +3,11 @@ import { apiBaseURL } from "./health"
 export type CreateSnapshotResponse = {
   snapshot_id: string
   warning: string
+  conversation_filename: string | null
+  title: string
+  html_url: string
+  head_sha: string
+  changed_files: string[]
 }
 
 export type SnapshotSummary = {
@@ -14,6 +19,7 @@ export type SnapshotSummary = {
   Title: string
   AuthorLogin: string
   State: string
+  HeadSHA: string
   CreatedAt: string
 }
 

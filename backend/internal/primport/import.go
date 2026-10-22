@@ -68,10 +68,25 @@ func (s *Service) Import(
 		return nil, s.cleanupAfterFailure(ctx, savedObjectKeys, err)
 	}
 
-	return &ImportResult{
-		SnapshotID: snapshotID,
-		Warning:    prepared.Warning,
-	}, nil
+	changedFiles := make([]string, 0, len(files))
+
+	for _, file := range files {
+		changedFiles = append(changedFiles, file.Path)
+	}
+	result := &ImportResult{
+		SnapshotID:   snapshotID,
+		Warning:      prepared.Warning,
+		Title:        prepared.Snapshot.Title,
+		HTMLURL:      prepared.Snapshot.HTMLURL,
+		HeadSHA:      prepared.Snapshot.HeadSHA,
+		ChangedFiles: changedFiles,
+	}
+
+	if conversation != nil {
+		result.ConversationFilename = &conversation.Filename
+	}
+
+	return result, nil
 }
 
 // 8. Delete the saved objects on failure.

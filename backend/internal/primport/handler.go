@@ -103,9 +103,14 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"snapshot_id": result.SnapshotID,
-		"warning":     result.Warning,
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"snapshot_id":           result.SnapshotID,
+		"warning":               result.Warning,
+		"conversation_filename": result.ConversationFilename,
+		"title":                 result.Title,
+		"html_url":              result.HTMLURL,
+		"head_sha":              result.HeadSHA,
+		"changed_files":         result.ChangedFiles,
 	})
 }
 
