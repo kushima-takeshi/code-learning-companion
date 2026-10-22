@@ -148,6 +148,7 @@ func TestImportInvalidConversationContinues(t *testing.T) {
 		{"size", "notes.md", strings.Repeat("x", 1024*1024+1), "file_too_large", false},
 		{"nul", "notes.md", "a\x00b", "file_contains_nul", false},
 		{"read", "notes.md", "", "file_read_failed", true},
+		{"empty", "notes.md", "", "empty_file", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -170,22 +171,6 @@ func TestImportInvalidConversationContinues(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestImportEmptyConversationIsSaved(t *testing.T) {
-	s, _, store, db := testService(t)
-	input := testInput()
-	input.File = conversationFile("")
-	if _, err := s.Import(context.Background(), input); err != nil {
-		t.Fatal(err)
-	}
-	if len(db.committed) != 2 {
-		t.Fatal("empty valid conversation was skipped")
-	}
-	key := db.committed[1].args[4].Value.(string)
-	if obj, ok := store.objects[key]; !ok || obj.body != "" {
-		t.Fatal("empty conversation not saved correctly")
 	}
 }
 
