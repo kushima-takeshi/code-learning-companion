@@ -2,7 +2,8 @@
 
 更新日: 2026-10-26
 
-現行方針は第二案。学習はユーザーのAIツール内の自作スキルで行い、Learning Companionは保存・閲覧・復習・通知を担当する。
+現行方針は第二案（2026-10-26に公開PR必須の前提を撤回）。学習は手元のコード・差分・許可された会話から、ユーザーのAIツール内の自作スキルで行う。
+Learning Companionは、送信内容を確認した問題・回答・フィードバック等の学習記録を保存し、閲覧・復習予定・通知を担当する。元教材のアプリ保存は必須にせず、既存の公開PR取り込みは任意の入口として残す。
 
 ## 読む順序と役割
 
@@ -13,7 +14,7 @@
 | [要件定義](../requirements.md) | 何を実現するか、対象外 |
 | [第二案・現行作業計画](implementation-plan-v2.md) | どの順番で作るか |
 | [設計概要](detailed-design.md) | 責任分担、共通データ、仕様への入口 |
-| [仕様01](specs/01-authentication.md)・[仕様02](specs/02-public-pr-import.md) | 既存のWeb認証とPR取り込み |
+| [仕様01](specs/01-authentication.md)・[仕様02](specs/02-public-pr-import.md) | 既存のWeb認証と任意の公開PR取り込み |
 | [仕様03](specs/03-learning-questions.md) | スキルによる出題・回答・判定と保存・再開 |
 | [仕様04](specs/04-review.md) | 復習・通知 |
 | [仕様05](specs/05-deep-dive.md) | AIツール内の深掘りと学習要点 |
