@@ -1,39 +1,56 @@
-# MVP 設計概要
+# Learning Companion 設計概要（第二案・現行）
 
-この文書はMVP全体の地図である。各機能の詳細な振る舞い・受け入れ条件は `specs/` 配下に分ける。実装の進め方・フェーズ分割は [implementation-plan.md](implementation-plan.md) を参照。
+更新日: 2026-10-26
+[要件](../requirements.md)を実現する責任分担。開発順は[第二案](implementation-plan-v2.md)、現在地は[現在の作業](current-work.md)。
 
-## 技術構成
+## 構成
 
 ```text
-React + TypeScript → Go API → PostgreSQL / Object Storage
-                              ├─ GitHub API（公開PR取得）
-                              └─ OpenAI API（BYOK）
+ユーザー ↔ AIツール内の自作スキル
+                 ↕ 本人認証付き接続（MCPを提案）
+              Goサービス ↔ PostgreSQL / Object Storage
+                 ↕
+           React管理・閲覧画面
+                 ↓
+             復習・通知処理
 ```
 
-- GitHub OAuthはユーザー識別だけに使い、非公開リポジトリ権限を要求しない
-- OpenAI APIキーは利用中のセッションだけで扱い、DB・ログ・Object Storageに保存しない
-- 公開PRのみを扱う
+スキルがAIへ学習手順を指示する。Goは教材・学習結果を扱い、AI APIを呼ばない。
+接続の実装方式は詳細設計で決める。Web Cookie、アプリ接続トークン、AI製品の認証は別物として扱う。
 
-## 機能仕様書
+## 論理データ
 
-| 実装順 | 仕様書 | 対象 |
-|---:|---|---|
-| 1 | [01-authentication.md](specs/01-authentication.md) | GitHub OAuthとユーザー分離 |
-| 2 | [02-public-pr-import.md](specs/02-public-pr-import.md) | 公開PR URL・会話ファイルの取り込み |
-| 3 | [03-learning-questions.md](specs/03-learning-questions.md) | OpenAI BYOK、候補、問題、回答、フィードバック |
-| 4 | [04-review.md](specs/04-review.md) | 復習予定・再出題 |
-| 5 | [05-deep-dive.md](specs/05-deep-dive.md) | 自由対話と会話ログ |
-| 6 | [06-data-lifecycle.md](specs/06-data-lifecycle.md) | 保持、削除、利用上限、公開ベータ |
+| データ | 役割 |
+|---|---|
+| PRSnapshot / ConversationUpload | 保存済み教材と会話。既存実装を利用 |
+| LearningCandidate / LearningSet | 候補と選択した学習対象 |
+| LearningSession / Question | 初回・復習の回と、その回の問題 |
+| AnswerAttempt / Evaluation | 提出内容と判定・解説。ヒント・自己評価・テスト結果を区別 |
+| LearningNote | ユーザーが保存した要点・未解決点 |
+| ReviewSchedule / Notification | 次の復習と通知の管理 |
+
+これは論理上の役割。テーブル分割、型、API、状態enumは未確定。復習問題を初回へ上書きしない関係を詳細設計で定める。
 
 ## 共通ルール
 
-- すべてのアプリ内データは `user_id` で所有者を限定する
-- PRは初回取り込み時のスナップショットを教材の正本とする
-- LLMは設計意図を差分だけから断定しない
-- LLM出力は構造化データとして検証し、根拠参照を持たない問題・フィードバックは保存しない
-- APIキーをエラーログ・監査ログ・レスポンスへ含めない
-- 詳細仕様書1つ、またはその中の小さな受け入れ条件群を、1つの実装PRの範囲にする
+- 認証済みユーザーから所有者を決め、関連データも同じ所有者であることを検証する。
+- 教材の参照先と生成対象が一致することを検証する。内部Storageキーを外部指定させない。
+- 根拠は場所で保存し、表示時に教材から読み出す。問題用コードと引用元は区別する。
+- AIの出力は検証してから保存する。回答は判定より先に保存する。
+- 保存要求は冪等に扱い、同一IDで異なる内容が来た場合は競合として扱う。
+- AIの評価は能力認定ではない。処理失敗と理解度の判定保留を分ける。
+- サーバーが直接観測できないAI側の失敗を、確定したサーバー状態として推測しない。未提出・待機・再送の扱いを契約で決める。
 
-## 開発時の確認方法
+## 機能仕様
 
-AIへ実装を頼む前に、そのPRで扱う仕様書の「目的」「対象外」「受け入れ条件」を渡す。実装後は、変更ファイル、処理の流れ、採用理由、失敗時の確認方法を自分の言葉で説明できるか確認する。
+| 仕様 | 対象 |
+|---|---|
+| [01](specs/01-authentication.md) | 既存Web認証。スキル接続認証は仕様03で追加設計 |
+| [02](specs/02-public-pr-import.md) | 既存公開PR取り込み。本文読み出し・会話後付けは追加設計 |
+| [03](specs/03-learning-questions.md) | スキルの学習手順と保存・再開 |
+| [04](specs/04-review.md) | 復習・通知 |
+| [05](specs/05-deep-dive.md) | AIツール内の深掘りと要点保存 |
+| [06](specs/06-data-lifecycle.md) | 保持・削除・利用上限・公開条件 |
+
+旧フェーズ3のHTTP生成API・BYOKの実装指示は利用しない。
+既存取り込みの未決課題は[現在の作業](current-work.md)から参照する。

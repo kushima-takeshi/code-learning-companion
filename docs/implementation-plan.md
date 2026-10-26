@@ -1,12 +1,15 @@
 # Code Learning Companion MVP 実装計画
 
+> **旧計画・履歴資料。新規実装の指示には使わない。** 現行は[第二案](implementation-plan-v2.md)。
+> フェーズ2の未決課題は現行方針と照合して引き継ぐ。旧BYOK・画面・リリース条件は適用しない。
+
 MVP を仕様書順（01→06）かつ Docker Compose 開発環境で段階的に実装する計画。公開ベータ完成条件10項目をリリース基準とする。
 
 ## 進捗チェックリスト
 
-- [ ] フェーズ0: Docker Compose + Go/React 骨格 + DB マイグレーション基盤
-- [ ] フェーズ1 (spec 01): GitHub OAuth、users テーブル、セッション、認可ミドルウェア
-- [ ] フェーズ2 (spec 02): 公開 PR 取り込み、スナップショット保存、周辺コード取得
+- [x] フェーズ0: Docker Compose + Go/React 骨格 + DB マイグレーション基盤
+- [x] フェーズ1 (spec 01): GitHub OAuth、users テーブル、セッション、認可ミドルウェア
+- [x] フェーズ2 (spec 02): 公開 PR 取り込み、スナップショット保存、周辺コード取得
 - [ ] フェーズ3 (spec 03): OpenAI BYOK、候補・問題・回答・フィードバック、根拠検証
 - [ ] フェーズ4 (spec 04): 復習スケジュール、別角度再出題、日時進めテスト支援
 - [ ] フェーズ5 (spec 05): 深掘り対話、会話ログ、LearningNote 保存
@@ -15,8 +18,11 @@ MVP を仕様書順（01→06）かつ Docker Compose 開発環境で段階的�
 
 ## 現状
 
-- リポジトリは**ドキュメントのみ**（[requirements.md](../requirements.md)、[detailed-design.md](detailed-design.md)、[specs/](specs/)）
-- 実装コード・インフラ設定は未着手
+- フェーズ 0 から 2 まで main にマージ済み（PR #2 から #18）
+- 起動は Docker Compose。PostgreSQL、MinIO、Go API、React
+- ログイン済みユーザーが公開 PR を取り込み、head SHA 固定のスナップショットと任意の会話 Markdown を保存できる
+- 会話ファイルのテーブル名は `conversation_uploads`
+- 次はフェーズ 3（[specs/03-learning-questions.md](specs/03-learning-questions.md)）
 - 技術スタックは要件定義で確定: **React + TypeScript / Go / PostgreSQL / Object Storage / GitHub OAuth / OpenAI BYOK**
 
 ## 方針
