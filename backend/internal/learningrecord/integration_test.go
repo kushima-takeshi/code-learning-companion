@@ -121,6 +121,93 @@ func TestGetIntegrationOwner(t *testing.T) {
 	})
 }
 
+func TestInsertRecordIntegrationRoundTrip(t *testing.T) {
+	db := newIntegrationDB(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var ownerID string
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO users (github_user_id, github_login)
+		VALUES (1, 'test-owner')
+		RETURNING id
+	`).Scan(&ownerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := []byte(`{
+		"request_id": "11111111-1111-4111-8111-111111111111",
+		"theme": "Goのdefer",
+		"questions": [
+			{
+				"type": "free_text",
+				"prompt": "コードの \"defer\" はいつ実行されますか？",
+				"answer": {
+					"text": "関数から戻るときです。\n終了処理に使います。",
+					"hint_used": false
+				},
+				"feedback": {
+					"understanding": "できた",
+					"explanation": "実行タイミングを説明できています。"
+				}
+			},
+			{
+				"type": "free_text",
+				"prompt": "複数のdeferの実行順は？",
+				"answer": {
+					"text": "後から登録した順です。",
+					"hint_used": true
+				},
+				"feedback": {
+					"understanding": "一部できた",
+					"explanation": "ヒントを使って確認できました。"
+				}
+			}
+		]
+	}`)
+
+	input, err := DecodeSaveInput(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := New(db)
+	saved, err := service.insertRecord(ctx, ownerID, input)
+	if err != nil {
+		t.Fatalf("保存に失敗: %v", err)
+	}
+
+	got, err := service.Get(ctx, ownerID, saved.ID)
+	if err != nil {
+		t.Fatalf("取得に失敗: %v", err)
+	}
+
+	reloaded := SaveInput{
+		RequestID: got.RequestID,
+		Theme:     got.Theme,
+		Questions: got.Questions,
+	}
+
+	reloadedJSON, err := json.Marshal(reloaded)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var wantContent, gotContent any
+	if err := json.Unmarshal(data, &wantContent); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(reloadedJSON, &gotContent); err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(gotContent, wantContent) {
+		t.Fatalf("保存前後で内容が変わっています:\ngot:  %#v\nwant: %#v",
+			gotContent, wantContent)
+	}
+}
+
 func newIntegrationDB(t *testing.T) *sql.DB {
 	t.Helper()
 
