@@ -1,5 +1,9 @@
 package learningrecord
 
+import "errors"
+
+var ErrRequestConflict = errors.New("learning record request conflict")
+
 type FieldError struct {
 	Path          string   `json:"path"`
 	Code          string   `json:"code"`

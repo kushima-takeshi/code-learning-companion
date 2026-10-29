@@ -1,5 +1,7 @@
 package learningrecord
 
+import "time"
+
 type SaveInput struct {
 	RequestID string     `json:"request_id"`
 	Theme     string     `json:"theme"`
@@ -21,4 +23,13 @@ type Answer struct {
 type Feedback struct {
 	Understanding string `json:"understanding"`
 	Explanation   string `json:"explanation"`
+}
+
+type Record struct {
+	ID        string
+	UserID    string
+	RequestID string
+	Theme     string
+	Questions []Question
+	CreatedAt time.Time
 }
