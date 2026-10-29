@@ -41,3 +41,39 @@ func (s *Service) Get(
 
 	return record, nil
 }
+
+func (s *Service) getByRequestID(
+	ctx context.Context,
+	userID string,
+	requestID string,
+) (Record, error) {
+	var record Record
+	var questionsJSON []byte
+
+	err := s.db.QueryRowContext(
+		ctx,
+		`
+		SELECT id, user_id, request_id, theme, questions, created_at
+		FROM learning_records
+		WHERE user_id = $1 AND request_id = $2
+		`,
+		userID,
+		requestID,
+	).Scan(
+		&record.ID,
+		&record.UserID,
+		&record.RequestID,
+		&record.Theme,
+		&questionsJSON,
+		&record.CreatedAt,
+	)
+	if err != nil {
+		return Record{}, fmt.Errorf("get record by request ID: %w", err)
+	}
+
+	if err := json.Unmarshal(questionsJSON, &record.Questions); err != nil {
+		return Record{}, fmt.Errorf("decode stored questions: %w", err)
+	}
+
+	return record, nil
+}

@@ -208,6 +208,78 @@ func TestInsertRecordIntegrationRoundTrip(t *testing.T) {
 	}
 }
 
+func TestGetByRequestIDIntegration(t *testing.T) {
+	db := newIntegrationDB(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	ownerID, otherID := uuid.NewString(), uuid.NewString()
+	for i, userID := range []string{ownerID, otherID} {
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO users (id, github_user_id, github_login)
+			VALUES ($1, $2, $3)
+		`, userID, i+1, "test-user-"+userID)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	hintUsed := false
+	question := Question{
+		Type:   "free_text",
+		Prompt: "deferはいつ実行されますか？",
+		Answer: Answer{
+			Text:     "関数から戻るときです。",
+			HintUsed: &hintUsed,
+		},
+		Feedback: Feedback{
+			Understanding: "できた",
+			Explanation:   "実行タイミングを説明できています。",
+		},
+	}
+	input := SaveInput{
+		RequestID: uuid.NewString(),
+		Theme:     "Goのdefer",
+		Questions: []Question{question, question},
+	}
+	service := New(db)
+	saved, err := service.insertRecord(ctx, ownerID, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name       string
+		userID     string
+		requestID  string
+		wantNoRows bool
+	}{
+		{name: "本人の保存済み要求", userID: ownerID, requestID: input.RequestID},
+		{name: "本人の未保存要求", userID: ownerID, requestID: uuid.NewString(), wantNoRows: true},
+		{name: "他人の保存済み要求", userID: otherID, requestID: input.RequestID, wantNoRows: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := service.getByRequestID(ctx, tc.userID, tc.requestID)
+			if tc.wantNoRows {
+				if !errors.Is(err, sql.ErrNoRows) {
+					t.Fatalf("該当なしのエラーを期待しましたが、結果は %v", err)
+				}
+				if !reflect.DeepEqual(got, Record{}) {
+					t.Fatalf("該当なしの場合は空の記録を期待しましたが、結果は %+v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("保存済み要求の検索に失敗: %v", err)
+			}
+			if !reflect.DeepEqual(got, saved) {
+				t.Fatalf("保存済み記録と検索結果が違います:\ngot:  %+v\nwant: %+v", got, saved)
+			}
+		})
+	}
+}
+
 func newIntegrationDB(t *testing.T) *sql.DB {
 	t.Helper()
 
