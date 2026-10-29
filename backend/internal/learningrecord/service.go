@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Service struct {
@@ -25,7 +27,20 @@ func (s *Service) Save(ctx context.Context, userID string, input SaveInput) (Rec
 
 	saved, err := s.getByRequestID(ctx, userID, input.RequestID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return s.insertRecord(ctx, userID, input)
+		saved, err = s.insertRecord(ctx, userID, input)
+		if err == nil {
+			return saved, nil
+		}
+
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) ||
+			pgErr.Code != "23505" ||
+			pgErr.ConstraintName != "learning_records_user_request_unique" {
+			return Record{}, err
+		}
+
+		// 別の要求が先に保存した記録を取得し、既存の内容比較へ進む。
+		saved, err = s.getByRequestID(ctx, userID, input.RequestID)
 	}
 	if err != nil {
 		return Record{}, err
