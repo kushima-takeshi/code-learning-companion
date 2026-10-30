@@ -4,6 +4,8 @@ import "errors"
 
 var ErrRequestConflict = errors.New("learning record request conflict")
 
+var ErrSaveInputTooLarge = errors.New("save_input_too_large")
+
 type FieldError struct {
 	Path          string   `json:"path"`
 	Code          string   `json:"code"`

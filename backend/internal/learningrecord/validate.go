@@ -24,7 +24,7 @@ func (input SaveInput) Validate() error {
 		})
 	}
 
-	if len(input.Questions) < 2 || len(input.Questions) > 3 {
+	if len(input.Questions) < 1 || len(input.Questions) > 10 {
 		details = append(details, FieldError{
 			Path: "questions",
 			Code: "invalid_count",
