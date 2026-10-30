@@ -55,6 +55,7 @@
 | [04](specs/04-review.md) | 復習・通知 |
 | [05](specs/05-deep-dive.md) | AIツール内の深掘りと要点保存 |
 | [06](specs/06-data-lifecycle.md) | 保持・削除・利用上限・公開条件 |
+| [07](specs/07-agent-connection.md) | AIツールの接続認証・連携トークン |
 
 旧フェーズ3のHTTP生成API・BYOKの実装指示は利用しない。
 既存取り込みの未決課題は[現在の作業](current-work.md)から参照する。
