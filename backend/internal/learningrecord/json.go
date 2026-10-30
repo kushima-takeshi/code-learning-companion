@@ -1,6 +1,9 @@
 package learningrecord
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 // MaxSaveInputBytes is the maximum size of the complete incoming JSON, in bytes.
 const MaxSaveInputBytes = 1 << 20
@@ -12,7 +15,14 @@ func DecodeSaveInput(data []byte) (SaveInput, error) {
 
 	var input SaveInput
 
-	if err := json.Unmarshal(data, &input); err != nil {
+	// Keep the single-JSON contract and the existing json.SyntaxError behavior.
+	if !json.Valid(data) {
+		return SaveInput{}, json.Unmarshal(data, &input)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
 		return SaveInput{}, err
 	}
 
