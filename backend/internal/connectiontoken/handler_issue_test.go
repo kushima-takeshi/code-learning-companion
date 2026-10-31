@@ -135,3 +135,21 @@ func TestManagementIssueInvalidIntegration(t *testing.T) {
 		t.Fatalf("不正入力では発行しない: %d %v", count, err)
 	}
 }
+
+func TestManagementIssueBodyLimitIntegration(t *testing.T) {
+	db := newIntegrationDB(t)
+	owner := createUser(t, db)
+	h := managementHTTP(t, db)
+	cookie := webSession(t, db, owner)
+	body := `{"name":"Codex"}`
+	body += strings.Repeat(" ", 4096-len(body))
+	res := managementRequest(h, "POST", "/connection-tokens", body, cookie)
+	if res.Code != 201 {
+		t.Fatalf("4096バイトは受け付ける: %d %s", res.Code, res.Body.String())
+	}
+	checkHTTPError(t, managementRequest(h, "POST", "/connection-tokens", body+" ", cookie), 413, "request_too_large")
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM connection_tokens`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("超過分を保存しない: %d %v", count, err)
+	}
+}
