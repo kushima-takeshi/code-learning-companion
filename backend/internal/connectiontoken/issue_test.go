@@ -40,8 +40,8 @@ func TestIssueIntegration(t *testing.T) {
 	if issued.Token.ID == "" || issued.Token.UserID != owner || issued.Token.Name != "自宅PC" {
 		t.Fatal("発行メタデータが不正")
 	}
-	if !issued.Token.CreatedAt.Equal(now) || !issued.Token.ExpiresAt.Equal(now.Add(30*24*time.Hour)) || issued.Token.RevokedAt != nil {
-		t.Fatal("発行時刻・30日の期限・失効状態が不正")
+	if !issued.Token.CreatedAt.Equal(now) || !issued.Token.ExpiresAt.Equal(now.Add(90*24*time.Hour)) || issued.Token.RevokedAt != nil {
+		t.Fatal("発行時刻・90日の期限・失効状態が不正")
 	}
 	if !strings.HasPrefix(issued.Secret, "clc_") || len(issued.Secret) != 68 {
 		t.Fatal("発行トークンの形式が不正")

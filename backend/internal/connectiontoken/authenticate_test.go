@@ -72,6 +72,50 @@ func TestAuthenticateIntegrationExpiry(t *testing.T) {
 	}
 }
 
+func TestAuthenticateIntegrationPreservesStoredExpiry(t *testing.T) {
+	db := newIntegrationDB(t)
+	owner := createUser(t, db)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	createdAt := time.Date(2026, 10, 30, 9, 0, 0, 0, time.UTC)
+	now := createdAt
+	service := New(db)
+	service.now = func() time.Time { return now }
+	issued, err := service.Issue(ctx, owner, "既存の接続")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Model a token persisted before the lifetime changed to 90 days.
+	storedExpiry := createdAt.Add(30 * 24 * time.Hour)
+	if _, err := db.ExecContext(ctx, `UPDATE connection_tokens SET expires_at=$1 WHERE id=$2`, storedExpiry, issued.Token.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Issue(ctx, owner, "新しい接続"); err != nil {
+		t.Fatal(err)
+	}
+
+	now = storedExpiry.Add(-time.Microsecond)
+	got, err := service.Authenticate(ctx, issued.Secret)
+	if err != nil || got.ID != issued.Token.ID || got.UserID != owner || !got.ExpiresAt.Equal(storedExpiry) {
+		t.Fatalf("既存トークンは保存済み期限の直前まで有効: got %+v, err %v", got, err)
+	}
+	for _, at := range []time.Time{storedExpiry, createdAt.Add(31 * 24 * time.Hour)} {
+		now = at
+		got, err := service.Authenticate(ctx, issued.Secret)
+		if !errors.Is(err, ErrInvalidToken) || !reflect.DeepEqual(got, Token{}) {
+			t.Fatalf("既存の30日期限を90日まで延長しない: at %v, got %+v, err %v", at, got, err)
+		}
+	}
+	var expires time.Time
+	if err := db.QueryRowContext(ctx, `SELECT expires_at FROM connection_tokens WHERE id=$1`, issued.Token.ID).Scan(&expires); err != nil {
+		t.Fatal(err)
+	}
+	if !expires.Equal(storedExpiry) {
+		t.Fatal("新規発行・照合で既存トークンの保存済み期限を書き換えない")
+	}
+}
+
 func TestAuthenticateIntegrationUnknownAndRevoked(t *testing.T) {
 	db := newIntegrationDB(t)
 	owner := createUser(t, db)
