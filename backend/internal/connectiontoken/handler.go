@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/auth"
 )
 
@@ -35,6 +36,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handl
 		})
 	}
 	mux.Handle("POST /connection-tokens", protect(h.Issue))
+	mux.Handle("GET /connection-tokens", protect(h.List))
+	mux.Handle("POST /connection-tokens/{id}/revoke", protect(h.Revoke))
 	return nil
 }
 
@@ -98,6 +101,47 @@ func (h *Handler) Issue(w http.ResponseWriter, r *http.Request) {
 		Token  tokenResponse `json:"token"`
 		Secret string        `json:"secret"`
 	}{Token: publicToken(issued.Token), Secret: issued.Secret})
+}
+
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeManagementJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	tokens, err := h.service.List(r.Context(), user.ID)
+	if err != nil {
+		writeManagementJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+		return
+	}
+	response := make([]tokenResponse, 0, len(tokens))
+	for _, token := range tokens {
+		response = append(response, publicToken(token))
+	}
+	writeManagementJSON(w, http.StatusOK, response)
+}
+
+func (h *Handler) Revoke(w http.ResponseWriter, r *http.Request) {
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeManagementJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeManagementJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_token_id"})
+		return
+	}
+	if err := h.service.Revoke(r.Context(), user.ID, id.String()); err != nil {
+		if errors.Is(err, ErrTokenNotFound) {
+			writeManagementJSON(w, http.StatusNotFound, map[string]string{"error": "token_not_found"})
+		} else {
+			writeManagementJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+		}
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func writeManagementJSON(w http.ResponseWriter, status int, value any) {
