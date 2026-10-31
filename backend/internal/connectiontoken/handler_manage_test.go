@@ -22,7 +22,7 @@ func TestManagementListIntegration(t *testing.T) {
 		t.Fatalf("空一覧: %d %s", res.Code, res.Body.String())
 	}
 	s := New(db)
-	s.now = func() time.Time { return time.Now().Add(-32 * 24 * time.Hour) }
+	s.now = func() time.Time { return time.Now().Add(-Lifetime - 48*time.Hour) }
 	first, err := s.Issue(context.Background(), owner, "first")
 	if err != nil {
 		t.Fatal(err)

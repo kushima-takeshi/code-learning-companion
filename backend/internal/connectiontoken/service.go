@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const Lifetime = 30 * 24 * time.Hour
+const Lifetime = 90 * 24 * time.Hour
 
 var ErrInvalidName = errors.New("connection token name is required")
 
