@@ -17,7 +17,7 @@
 | 5. 復習・通知 | 未実装 | 順序7〜8 |
 | 6. 削除・全体利用上限・公開前確認 | 未実装。既存の入力容量制限と、今後の累積容量・頻度制限を区別する | 順序9 |
 
-今回のPR範囲は、ブロック2の連携トークン認証付き学習記録保存・詳細取得API。前回の[PR #26](https://github.com/kushima-takeshi/code-learning-companion/pull/26)はGitHubでマージ済みを確認し、最新origin/main（`32eba97`）から`codex/learning-record-save-detail-api`を作成した。既存の未コミットのレビュー引き継ぎメモは保全して引き継いだ。ユーザーは保存・詳細取得APIの契約に合意し、今回のPR単位で直接実装・検証・コミット・プッシュ・PR作成まで進め、途中の実装や確認をユーザーへ振らないよう依頼した。この許可は今回のPRの範囲に限る。HTTP経由の固定データの保存・再取得までを検証し、接続画面・再接続・MCP・定期整理とブロック2全体の完了は後続とする。
+今回のPR範囲は、ブロック2の連携トークン認証付き学習記録保存・詳細取得API。[PR #28](https://github.com/kushima-takeshi/code-learning-companion/pull/28)をmain向けに作成済み、未マージ。前回の[PR #26](https://github.com/kushima-takeshi/code-learning-companion/pull/26)はGitHubでマージ済みを確認し、最新origin/main（`32eba97`）から`codex/learning-record-save-detail-api`を作成した。既存の未コミットのレビュー引き継ぎメモは保全して引き継いだ。ユーザーは保存・詳細取得APIの契約に合意し、今回のPR単位で直接実装・検証・コミット・プッシュ・PR作成まで進め、途中の実装や確認をユーザーへ振らないよう依頼した。この許可は今回のPRの範囲に限る。HTTP経由の固定データの保存・再取得までを検証し、接続画面・再接続・MCP・定期整理とブロック2全体の完了は後続とする。
 
 ## 完了したこと
 
@@ -58,7 +58,7 @@
 - TDDで、保存テストは未実装時の405、詳細テストは未実装時の404でFAILし、各実装後にPASSした。1/10問、0/11問拒否、本文容量、未知項目、エラー項目位置、順次・同時再送、競合、本人分離、認証拒否、照合・保存・取得DB障害を実DBで検証した。
 - Docker内で学習記録と連携トークンの実DB接続先を指定した`go test ./... -count=1`、`go vet ./...`が成功。他パッケージの外部DB・MinIOを使うオプトイン統合テストは未設定・未実行。
 - 今回の保存・詳細HTTPテストを対象に`go test -race ./internal/learningrecord -run 'TestLearning(Save|Get)' -count=1`が実DBで成功。gofmtの差分なし、`git diff --check`、更新文書のローカルリンク確認も成功。通常開発DBはversion=4・dirty=false、race検査後もテスト用スキーマ残存0。
-- 実装コミットは`0082f1f`（保存API）、`0b4831e`（詳細取得API）。仕様・検証記録は別コミットに分ける。通常開発DBへのマイグレーション適用、実行中APIの再起動、ブラウザ・MCPでの操作は行っていない。
+- 実装コミットは`0082f1f`（保存API）、`0b4831e`（詳細取得API）。仕様・検証記録は`fcca33e`に分けた。通常開発DBへのマイグレーション適用、実行中APIの再起動、ブラウザ・MCPでの操作は行っていない。
 
 前PRから引き継いだレビュー状況（当時のメモを保全。マージ済みという事実とは区別する）:
 
@@ -66,7 +66,7 @@
 
 ## 次の一手
 
-1. 今回の保存・詳細取得APIの仕様・検証記録と最終差分を確認し、コミット・プッシュ・PR作成を完了する。過去PRに合わせて日本語と英語の概要・確認手順・補足・コミット別確認範囲を書く。ユーザーによるコードの確認はまだ行っていない。
+1. [PR #28](https://github.com/kushima-takeshi/code-learning-companion/pull/28)を、保存API（`0082f1f`）→詳細取得API（`0b4831e`）→仕様・検証記録（`fcca33e`）の順に確認する。実装・実DB検証・コミット・プッシュ・PR作成は完了。PR本文は過去PRに合わせた日本語と英語の概要・確認手順・補足・コミット別確認範囲。ユーザーによるコードの確認はまだ行っていない。
 2. 後続は再接続の保存先・API・排他制御、接続画面・MCP、定期整理を分けて設計・実装する。接続名の初期値「AIエージェント」・任意編集、既存接続を維持する追加、確認後の置き換え、状態からの再開、重複制御、未完了24時間、使用不能後30日保持、1日1回整理は合意済みだが未実装。一覧成功から再接続確認状態への記録も未実装。
 3. 1つのAIツールから本人認証し、確認した固定データを保存・再取得する最小試作を通す。HTTPテスト成功だけでMCP・スキルの接続試作を完了扱いしない。
 4. 保存・一覧・詳細APIの契約は仕様03、認証契約は仕様07へ記録済み。MCPツール名など後続契約は未確定で、旧草案の値をそのまま採用しない。
@@ -345,3 +345,11 @@
 - フロントエンドはNode 22で`npm ci`、`npm run lint`、`npm run build`が成功した。テストスクリプトはpackage.jsonにない。lintは`src/App.tsx`の警告1件で終了コード0。
 - ブランチ保護でCI成功を必須にする設定は、リポジトリ設定であり、この作業では変更していない。
 - GitHub Actionsの[実行 41298028013](https://github.com/kushima-takeshi/code-learning-companion/actions/runs/41298028013)で、ジョブ`backend`と`frontend`が成功した。`go test`はconnectiontoken、learningrecord、github、primport、storageがok。PR取り込みとMinIOの統合テストはオプトイン変数を付けていないので、既存のSkipに従う。フロントエンドはlintとbuildが成功し、ビルドは92msで完了した。PRは[#27](https://github.com/kushima-takeshi/code-learning-companion/pull/27)。
+
+
+## PR #28作成記録（2026-11-01）
+
+- 保存・詳細取得APIの3コミットをプッシュし、[PR #28](https://github.com/kushima-takeshi/code-learning-companion/pull/28)をmain向けに作成した。open・未マージ、意図した13ファイル、プッシュ済みheadを確認。GitHub連携ツールは作成権限不足のため、既存のGitHub CLI認証で作成し、このチャットへ添付した。
+- 全体ロードマップ、処理フロー、関連型のクラス図を`output/save-detail-*.png`に作成して表示とコードを照合した。クラス図ではHandlerのSave/Get、既存Service・DB、入力・内部Record・公開応答・問題と回答・フィードバック・検証エラーの関係、通常関数とメソッドの区別を確認した。画像はローカル説明用でPRに含めない。
+- 実装・仕様コミット`fcca33e`をheadとするCIの[実行 41316595567](https://github.com/kushima-takeshi/code-learning-companion/actions/runs/41316595567)でbackend・frontendとも成功。PR作成記録の文書コミット後も最新headのCI結果を確認する。
+- PR作成記録を別の文書コミットにし、マージは行わない。未コミットだった前PRのレビュー引き継ぎ内容を今回の進捗文書に保全済みで、作業前のstashも保持している。
