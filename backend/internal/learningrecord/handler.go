@@ -52,14 +52,14 @@ func parseListQuery(raw string) (int, int, error) {
 				return 0, 0, ErrInvalidPagination
 			}
 		}
-		n, err := strconv.ParseInt(values[0], 10, 32)
+		n, err := strconv.Atoi(values[0])
 		if err != nil {
 			return 0, 0, ErrInvalidPagination
 		}
 		if key == "limit" {
-			limit = int(n)
+			limit = n
 		} else {
-			offset = int(n)
+			offset = n
 		}
 	}
 	if limit < 1 || limit > MaxListLimit {

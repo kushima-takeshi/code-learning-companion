@@ -8,12 +8,11 @@ import (
 const (
 	DefaultListLimit = 20
 	MaxListLimit     = 100
-	MaxListOffset    = 1<<31 - 1
 )
 
 // List returns a bounded page of the owner's summaries, newest first.
 func (s *Service) List(ctx context.Context, userID string, limit, offset int) (ListPage, error) {
-	if limit < 1 || limit > MaxListLimit || offset < 0 || offset > MaxListOffset {
+	if limit < 1 || limit > MaxListLimit || offset < 0 {
 		return ListPage{}, ErrInvalidPagination
 	}
 	rows, err := s.db.QueryContext(ctx, `

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -72,7 +73,12 @@ func TestListIntegration(t *testing.T) {
 	if err != nil || len(page.Records) != 1 || page.Records[0].ID != ids[2] || page.HasMore {
 		t.Fatalf("last page: %+v %v", page, err)
 	}
-	for _, tc := range []struct{ limit, offset int }{{3, 0}, {100, 0}, {20, 3}, {20, MaxListOffset}} {
+	cases := []struct{ limit, offset int }{{3, 0}, {100, 0}, {20, 3}, {20, int(^uint(0) >> 1)}}
+	if strconv.IntSize > 32 {
+		largeOffset := int64(1) << 31
+		cases = append(cases, struct{ limit, offset int }{20, int(largeOffset)})
+	}
+	for _, tc := range cases {
 		page, err := service.List(ctx, owner, tc.limit, tc.offset)
 		if err != nil || page.HasMore || page.Records == nil {
 			t.Fatalf("boundary %+v: %+v %v", tc, page, err)

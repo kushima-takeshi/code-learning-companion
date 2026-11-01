@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -116,6 +117,7 @@ func TestLearningListHTTPIntegration(t *testing.T) {
 		{"last", "?limit=100&offset=100", ownerToken.Secret, 1, 0, false},
 		{"exact end", "?limit=1&offset=100", ownerToken.Secret, 1, 0, false},
 		{"past end", "?offset=101", ownerToken.Secret, 0, 0, false},
+		{"maximum int offset", "?offset=" + strconv.Itoa(int(^uint(0)>>1)), ownerToken.Secret, 0, 0, false},
 		{"empty owner", "", emptyToken.Secret, 0, 0, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -161,7 +163,13 @@ func TestLearningListHTTPIntegration(t *testing.T) {
 	if err := json.Unmarshal(res.Body.Bytes(), &otherPage); err != nil || res.Code != 200 || len(otherPage.Records) != 1 || otherPage.Records[0].ID != otherRecord.ID {
 		t.Fatalf("other user's own page: %s %v", res.Body.String(), err)
 	}
-	for _, query := range []string{"limit=0", "limit=101", "offset=-1", "offset=2147483648", "limit=20&limit=1", "user_id=" + other, "cursor=x", "limit=%zz"} {
+	if strconv.IntSize > 32 {
+		res := listRequest(h, "GET", "/learning-records?offset=2147483648", ownerToken.Secret, nil)
+		if res.Code != 200 || strings.TrimSpace(res.Body.String()) != `{"records":[],"has_more":false}` {
+			t.Fatalf("offset above signed 32-bit range must be accepted: %d %s", res.Code, res.Body.String())
+		}
+	}
+	for _, query := range []string{"limit=0", "limit=101", "offset=-1", "offset=" + strconv.FormatUint(uint64(^uint(0)>>1)+1, 10), "limit=20&limit=1", "user_id=" + other, "cursor=x", "limit=%zz"} {
 		checkListError(t, listRequest(h, "GET", "/learning-records?"+query, ownerToken.Secret, nil), 400, "invalid_pagination")
 	}
 	checkListError(t, listRequest(h, "GET", "/learning-records", "", cookie), 401, "unauthorized")
