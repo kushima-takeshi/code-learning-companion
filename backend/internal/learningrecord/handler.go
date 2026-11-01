@@ -16,6 +16,7 @@ func NewHandler(service *Service) *Handler { return &Handler{service: service} }
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, tokens *connectiontoken.Service) {
 	mux.Handle("GET /learning-records", tokens.RequireToken(http.HandlerFunc(h.List)))
 	mux.Handle("POST /learning-records", tokens.RequireToken(http.HandlerFunc(h.Save)))
+	mux.Handle("GET /learning-records/{id}", tokens.RequireToken(http.HandlerFunc(h.Get)))
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {

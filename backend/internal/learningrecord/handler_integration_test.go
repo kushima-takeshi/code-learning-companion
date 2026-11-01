@@ -186,7 +186,7 @@ func TestLearningListHTTPIntegration(t *testing.T) {
 			t.Fatalf("method %s: %d", method, res.Code)
 		}
 	}
-	if res := listRequest(h, "DELETE", "/learning-records/"+saved[0].ID, ownerToken.Secret, nil); res.Code != 404 {
+	if res := listRequest(h, "DELETE", "/learning-records/"+saved[0].ID, ownerToken.Secret, nil); res.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("no deletion route: %d", res.Code)
 	}
 	var expires time.Time
