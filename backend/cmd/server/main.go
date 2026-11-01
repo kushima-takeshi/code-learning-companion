@@ -12,6 +12,7 @@ import (
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/connectiontoken"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/db"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/github"
+	"github.com/kushima-takeshi/code-learning-companion/backend/internal/learningrecord"
 	appmigrate "github.com/kushima-takeshi/code-learning-companion/backend/internal/migrate"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/primport"
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/storage"
@@ -56,10 +57,12 @@ func main() {
 	importHandler := primport.NewHandler(importService)
 
 	mux := http.NewServeMux()
-	connectionTokenHandler := connectiontoken.NewHandler(connectiontoken.New(database))
+	connectionTokens := connectiontoken.New(database)
+	connectionTokenHandler := connectiontoken.NewHandler(connectionTokens)
 	if err := connectionTokenHandler.RegisterRoutes(mux, authHandler.RequireAuth, cfg.CORSOrigin); err != nil {
 		log.Fatalf("initialize connection token management: %v", err)
 	}
+	learningrecord.NewHandler(learningrecord.New(database)).RegisterRoutes(mux, connectionTokens)
 
 	mux.HandleFunc("GET /auth/github/login", authHandler.GitHubLogin)
 	mux.HandleFunc("GET /auth/github/callback", authHandler.GitHubCallback)

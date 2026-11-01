@@ -33,3 +33,15 @@ type Record struct {
 	Questions []Question
 	CreatedAt time.Time
 }
+
+// RecordSummary omits answers, feedback and internal ownership information.
+type RecordSummary struct {
+	ID        string    `json:"id"`
+	Theme     string    `json:"theme"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type ListPage struct {
+	Records []RecordSummary `json:"records"`
+	HasMore bool            `json:"has_more"`
+}
