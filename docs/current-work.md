@@ -312,4 +312,5 @@
 - バックエンドはGo 1.26.10で`go vet ./...`、`gofmt -l`の差分検査、`go test ./... -count=1`を実行する。Postgres 16をサービスコンテナで起動し、`LEARNINGRECORD_TEST_DATABASE_URL`と`CONNECTIONTOKEN_TEST_DATABASE_URL`をdocker-composeと同じ`clc`ユーザー・`clc`データベースへ向ける。学習記録と連携トークンのテストは、専用スキーマを作り`migrations`のSQLを自分で適用する。
 - ローカルのPostgreSQL 16で同じ環境変数を指定し、`go test ./... -count=1`、`go vet ./...`、gofmt差分なしを確認した。スキップは既存条件どおり`TestImportIntegration`（`PRIMPORT_INTEGRATION_TEST=1`とMinIO）と`TestMinIOPutDelete`（`MINIO_INTEGRATION_TEST=1`）のみ。
 - フロントエンドはNode 22で`npm ci`、`npm run lint`、`npm run build`が成功した。テストスクリプトはpackage.jsonにない。lintは`src/App.tsx`の警告1件で終了コード0。
-- ブランチ保護でCI成功を必須にする設定は、リポジトリ設定であり、この作業では変更していない。GitHub Actions上の成否はPRのチェックで確認する。
+- ブランチ保護でCI成功を必須にする設定は、リポジトリ設定であり、この作業では変更していない。
+- GitHub Actionsの[実行 41298028013](https://github.com/kushima-takeshi/code-learning-companion/actions/runs/41298028013)で、ジョブ`backend`と`frontend`が成功した。`go test`はconnectiontoken、learningrecord、github、primport、storageがok。PR取り込みとMinIOの統合テストはオプトイン変数を付けていないので、既存のSkipに従う。フロントエンドはlintとbuildが成功し、ビルドは92msで完了した。PRは[#27](https://github.com/kushima-takeshi/code-learning-companion/pull/27)。
