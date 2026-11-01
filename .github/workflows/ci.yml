@@ -1,0 +1,149 @@
+# CI（継続的インテグレーション）
+#
+# 人がコマンドを打ち忘れても、同じ検査が自動で走るようにする。
+# 動くタイミングは次の2つ。
+# - pull_request: プルリクエストの作成と、そのブランチへの追加の push
+# - push の branches: main へ入った直後（マージや、main への直接 push）
+#
+# backend と frontend は別ジョブで、互いに待たずに同時に進む。
+# どちらかが失敗すると、このワークフロー全体が失敗になる。
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# 検査はリポジトリを読むだけで足りる。
+# 書き込み権限を渡さないので、ワークフローからコードを変更できない。
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    # テストが止まったときに、ランナーを長時間占有しないようにする。
+    timeout-minutes: 20
+
+    # テスト用の PostgreSQL。docker-compose.yml の postgres と
+    # イメージ、ユーザー、パスワード、データベース名を揃える。
+    # ジョブ本体はランナー上で動く。接続先はサービス名 postgres ではなく、
+    # 公開されたポートの 127.0.0.1 にする。localhost だと IPv6 を先に試して
+    # 接続できないことがある。
+    # health-cmd が成功するまで、下のステップは始まらない。
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: clc
+          POSTGRES_PASSWORD: clc
+          POSTGRES_DB: clc
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U clc -d clc"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # 学習記録と連携トークンの統合テストは、この環境変数があると実DBへ接続する。
+    # 未設定のときは、テスト自身がスキップする。
+    # テーブル作成は各テストが専用スキーマを作り、migrations の SQL を適用する。
+    # サーバー起動時の migrate とは別なので、ここでマイグレーションコマンドは走らせない。
+    env:
+      LEARNINGRECORD_TEST_DATABASE_URL: postgres://clc:clc@127.0.0.1:5432/clc?sslmode=disable
+      CONNECTIONTOKEN_TEST_DATABASE_URL: postgres://clc:clc@127.0.0.1:5432/clc?sslmode=disable
+
+    # 以降の run は backend をカレントにする。
+    # uses のアクションはリポジトリ直下を見るので、go.sum のパスは直下からのまま。
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      # 検査するコミットのファイルをランナーへコピーする。
+      # これがないと、テスト対象のソースが実行環境にない。
+      - name: コードを取得する
+        uses: actions/checkout@v7
+
+      # go.mod が要求する Go 1.26 系をインストールする。
+      # 1.26.10 は、このワークフローを書いた時点の 1.26 系の最新パッチ。
+      # 手元と CI でコンパイラが違うと、vet やテストの結果が食い違う。
+      # go.sum はリポジトリ直下にないので、キャッシュの照合先を明示する。
+      - name: Goを用意する
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.10"
+          cache-dependency-path: backend/go.sum
+
+      # 依存モジュールをダウンロードする。
+      # ここで失敗すれば、テストの不具合ではなく取得の失敗だと切り分けられる。
+      - name: モジュールを取得する
+        run: go mod download
+
+      # コンパイルは通っても疑わしい書き方を報告する。
+      # テストより先に、明らかな誤りを短時間で見つける。
+      - name: go vetを実行する
+        run: go vet ./...
+
+      # gofmt -l は、整形結果と違うファイルの名前だけを表示する。
+      # 1件でもあれば整形忘れとして失敗させる。CI上ではファイルを書き換えない。
+      - name: gofmtの差分を検査する
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt が必要なファイル:"
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      # backend 以下の全パッケージをテストする。
+      # -count=1 は結果の再利用をやめ、毎回 PostgreSQL へ接続して確認するため。
+      # PR取り込みと MinIO の統合テストは、既存のオプトイン変数を付けないのでスキップされる。
+      # それらはオブジェクトストレージが必要で、このジョブには MinIO を置いていない。
+      - name: テストを実行する
+        run: go test ./... -count=1
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    # インストールやビルドが止まったときに、ランナーを長時間占有しないようにする。
+    timeout-minutes: 15
+
+    # 以降の run は frontend をカレントにする。
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # 検査するコミットのファイルをランナーへコピーする。
+      # これがないと、lint とビルドの対象ファイルが実行環境にない。
+      - name: コードを取得する
+        uses: actions/checkout@v7
+
+      # docker-compose.yml の frontend と同じ Node 22 系を入れる。
+      # package-lock.json を照合して、依存の再ダウンロードを次回以降短くする。
+      - name: Node.jsを用意する
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # lockfile どおりに依存を入れる。
+      # npm install と違い lockfile を書き換えないので、手元と CI で入る版がずれない。
+      - name: 依存パッケージをインストールする
+        run: npm ci
+
+      # package.json の lint（oxlint）を実行する。
+      # ビルドの前に、明らかな書き方の問題を見つける。テスト用スクリプトはまだない。
+      - name: lintを実行する
+        run: npm run lint
+
+      # TypeScript の型検査と、本番用のビルドを実行する。
+      # 開発サーバでは動いても、型やバンドルの段階で落ちることがある。
+      - name: ビルドを実行する
+        run: npm run build

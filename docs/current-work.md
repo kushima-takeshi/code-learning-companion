@@ -1,6 +1,6 @@
 # 現在の作業
 
-更新日: 2026-10-31
+更新日: 2026-11-01
 現行計画: [第二案](implementation-plan-v2.md)
 現在地: 保存入力の検証・JSON読み込みに加え、GoからのDB保存・本人の記録取得・要求ID検索を実装し、実DBテストで確認済み。保存の入口`Save()`と順次再送・同時送信の分岐も実装・実DB検証済み。保存入力の1〜10問・最大1 MiB・未知項目拒否も実装・検証済み。連携トークンの内部発行・一覧・照合・失効も実装・実DB検証済み。Web認証で保護したトークン管理API（発行・一覧・失効）とサーバーへの接続も実装・実DB検証済み。新規トークンの90日期限もTDDで実装・実DB検証済み。学習記録API・トークン認証のHTTP入口は未実装。
 
@@ -305,3 +305,12 @@
 - 実装とテストは`7c068bc`へコミット済み。接続UXの合意事項と進捗は別の文書コミットに分ける。再接続・画面・MCP・定期整理は未実装。
 
 - PR作成記録: [PR #25](https://github.com/kushima-takeshi/code-learning-companion/pull/25)をmain向けに作成し、このチャットへ添付した。open・未マージ・プッシュ済みhead・意図した6ファイルを確認。コードは`7c068bc`、UX文書と検証記録は`aa88176`。ロードマップ・処理フロー・関連型のクラス図をoutput/token-90-*.pngへ作成し、コードと表示を照合した。画像はローカル説明用でPRに含めない。PR作成記録を別の文書コミットで反映し、次はコードのコミットからユーザーと確認する。マージは行わない。
+
+## 2026-11-01: GitHub ActionsのCI
+
+- ユーザー依頼により、PRとmainへのpushで動く最小のCIを`.github/workflows/ci.yml`に追加した。機能開発の現在地（接続UXの後続）は変えていない。アプリのコードは変更していない。
+- バックエンドはGo 1.26.10で`go vet ./...`、`gofmt -l`の差分検査、`go test ./... -count=1`を実行する。Postgres 16をサービスコンテナで起動し、`LEARNINGRECORD_TEST_DATABASE_URL`と`CONNECTIONTOKEN_TEST_DATABASE_URL`をdocker-composeと同じ`clc`ユーザー・`clc`データベースへ向ける。学習記録と連携トークンのテストは、専用スキーマを作り`migrations`のSQLを自分で適用する。
+- ローカルのPostgreSQL 16で同じ環境変数を指定し、`go test ./... -count=1`、`go vet ./...`、gofmt差分なしを確認した。スキップは既存条件どおり`TestImportIntegration`（`PRIMPORT_INTEGRATION_TEST=1`とMinIO）と`TestMinIOPutDelete`（`MINIO_INTEGRATION_TEST=1`）のみ。
+- フロントエンドはNode 22で`npm ci`、`npm run lint`、`npm run build`が成功した。テストスクリプトはpackage.jsonにない。lintは`src/App.tsx`の警告1件で終了コード0。
+- ブランチ保護でCI成功を必須にする設定は、リポジトリ設定であり、この作業では変更していない。
+- GitHub Actionsの[実行 41298028013](https://github.com/kushima-takeshi/code-learning-companion/actions/runs/41298028013)で、ジョブ`backend`と`frontend`が成功した。`go test`はconnectiontoken、learningrecord、github、primport、storageがok。PR取り込みとMinIOの統合テストはオプトイン変数を付けていないので、既存のSkipに従う。フロントエンドはlintとbuildが成功し、ビルドは92msで完了した。PRは[#27](https://github.com/kushima-takeshi/code-learning-companion/pull/27)。
