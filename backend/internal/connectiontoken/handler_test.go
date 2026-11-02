@@ -19,7 +19,7 @@ func TestManagementMissingWebSessionDoesNotUseDB(t *testing.T) {
 		checkHTTPError(t, managementRequest(h, endpoint.method, endpoint.path, "", nil), 401, "unauthorized")
 	}
 	// Even accidental direct invocation of handlers fails closed without a user.
-	for _, method := range []http.HandlerFunc{NewHandler(nil).Issue, NewHandler(nil).List, NewHandler(nil).Revoke} {
+	for _, method := range []http.HandlerFunc{NewHandler(nil).Issue, NewHandler(nil).List, NewHandler(nil).Revoke, NewHandler(nil).StartReconnect, NewHandler(nil).GetReconnect, NewHandler(nil).CompleteReconnect, NewHandler(nil).RestartReconnect} {
 		res := httptest.NewRecorder()
 		method(res, httptest.NewRequest("POST", "/", nil))
 		checkHTTPError(t, res, 401, "unauthorized")

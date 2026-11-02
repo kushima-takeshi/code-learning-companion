@@ -322,3 +322,73 @@ func TestReconnectRollbackAndTargetIntegration(t *testing.T) {
 		t.Fatalf("rollback reactivated provisional token: %v", err)
 	}
 }
+
+func TestReconnectCompletionRollbackIntegration(t *testing.T) {
+	db := newIntegrationDB(t)
+	s := New(db)
+	ctx := context.Background()
+	owner := createUser(t, db)
+	old, err := s.Issue(ctx, owner, "PC")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := s.StartReconnect(ctx, owner, old.Token.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ConfirmReconnect(ctx, owner, pending.Operation.NewTokenID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE FUNCTION reject_completion() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.state='completed' THEN RAISE EXCEPTION 'injected failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_completion BEFORE UPDATE ON connection_reconnections FOR EACH ROW EXECUTE FUNCTION reject_completion()`); err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.CompleteReconnect(ctx, owner, pending.Operation.ID)
+	if err == nil || result.ID != "" {
+		t.Fatalf("failed completion: %+v %v", result, err)
+	}
+	for _, secret := range []string{old.Secret, pending.Secret} {
+		if _, err := s.Authenticate(ctx, secret); err != nil {
+			t.Fatalf("rollback revoked token: %v", err)
+		}
+	}
+	op, err := s.GetReconnect(ctx, owner, pending.Operation.ID)
+	if err != nil || op.State != "confirmed" {
+		t.Fatalf("rollback state: %+v %v", op, err)
+	}
+	if _, err := db.Exec(`DROP TRIGGER reject_completion ON connection_reconnections`); err != nil {
+		t.Fatal(err)
+	}
+	// Repeated completion requests all return the same operation and timestamp.
+	const n = 6
+	start := make(chan struct{})
+	type outcome struct {
+		op  Reconnection
+		err error
+	}
+	out := make(chan outcome, n)
+	var wg sync.WaitGroup
+	for range n {
+		wg.Go(func() { <-start; r, e := s.CompleteReconnect(ctx, owner, pending.Operation.ID); out <- outcome{r, e} })
+	}
+	close(start)
+	wg.Wait()
+	close(out)
+	var completedAt time.Time
+	for r := range out {
+		if r.err != nil || r.op.State != "completed" {
+			t.Fatalf("concurrent completion: %+v %v", r.op, r.err)
+		}
+		if !completedAt.IsZero() && !r.op.CompletedAt.Equal(completedAt) {
+			t.Fatal("completion time changed")
+		}
+		completedAt = *r.op.CompletedAt
+	}
+	// Account deletion still cascades through token and reconnection metadata.
+	if _, err := db.Exec(`DELETE FROM users WHERE id=$1`, owner); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM connection_reconnections`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("owner cascade: %d %v", count, err)
+	}
+}
