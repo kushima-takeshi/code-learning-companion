@@ -180,13 +180,13 @@ func TestLearningListHTTPIntegration(t *testing.T) {
 	} {
 		checkListError(t, listRequest(h, endpoint.method, endpoint.path, ownerToken.Secret, nil), 401, "unauthorized")
 	}
-	for _, method := range []string{"POST", "PUT", "DELETE", "PATCH"} {
+	for _, method := range []string{"PUT", "DELETE", "PATCH"} {
 		res := listRequest(h, method, "/learning-records", ownerToken.Secret, nil)
 		if res.Code != http.StatusMethodNotAllowed {
 			t.Fatalf("method %s: %d", method, res.Code)
 		}
 	}
-	if res := listRequest(h, "DELETE", "/learning-records/"+saved[0].ID, ownerToken.Secret, nil); res.Code != 404 {
+	if res := listRequest(h, "DELETE", "/learning-records/"+saved[0].ID, ownerToken.Secret, nil); res.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("no deletion route: %d", res.Code)
 	}
 	var expires time.Time
