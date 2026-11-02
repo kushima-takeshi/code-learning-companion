@@ -373,3 +373,4 @@ PR #28 は origin/main の `f51f8b0` でマージ済み。いまのPRは説明�
 - `AGENTS.md` に、PRを作るときはこの型で説明を書く旨を1項目追加した。
 - アプリの Go / React コードは変更していない。手元の `go test` と frontend の lint / build は再実行していない。確認は PR の CI `backend` と `frontend` で行う。
 - [PR #30](https://github.com/kushima-takeshi/code-learning-companion/pull/30) を main 向けに作成した。head `3fbbaa7` の CI [実行 41423741906](https://github.com/kushima-takeshi/code-learning-companion/actions/runs/41423741906) で `backend` と `frontend` が成功した。
+- 「レビューで特に見てほしい点」の案内を更新した。仕様に明示がない判断を最優先にし、認証・トークン、削除・上書き、DBトランザクション、同時実行・再送、呼び出し側への影響、他のやり方があり得た設計を、ファイルと関数つきで書く。該当がなければ「なし」。この追記の確認は PR #30 の CI `backend` と `frontend` で行う。
