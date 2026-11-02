@@ -112,7 +112,7 @@ func TestManagementDBFailureIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`DROP TABLE connection_tokens`); err != nil {
+	if _, err := db.Exec(`DROP TABLE connection_tokens CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	for _, endpoint := range []struct{ method, path, body string }{

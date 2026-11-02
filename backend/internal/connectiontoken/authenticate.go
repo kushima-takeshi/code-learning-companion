@@ -25,6 +25,11 @@ func (s *Service) Authenticate(ctx context.Context, secret string) (Token, error
   SELECT id, user_id, name, created_at, expires_at, revoked_at
   FROM connection_tokens
   WHERE token_hash=$1 AND expires_at > $2 AND revoked_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM connection_reconnections r WHERE r.new_token_id=connection_tokens.id
+    AND r.state <> 'completed'
+    AND (r.state NOT IN ('pending', 'confirmed') OR r.expires_at <= $2)
+  )
  `, hash[:], s.now().UTC()))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Token{}, ErrInvalidToken
