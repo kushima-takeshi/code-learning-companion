@@ -372,4 +372,4 @@ PR #28 は origin/main の `f51f8b0` でマージ済み。いまのPRは説明�
 - テストケースは名前と、そのケースが確認する内容を1行で書く。期待値を変えたときはその点も書く。対応する `docs/specs/` の条件があれば同じ行に示す。人がテストコードを読まなくても、足りないケースに気づけるようにする。
 - `AGENTS.md` に、PRを作るときはこの型で説明を書く旨を1項目追加した。
 - アプリの Go / React コードは変更していない。手元の `go test` と frontend の lint / build は再実行していない。確認は PR の CI `backend` と `frontend` で行う。
-- [PR #30](https://github.com/kushima-takeshi/code-learning-companion/pull/30) を main 向けに作成した。CI の成否は実行完了後に記録する。
+- [PR #30](https://github.com/kushima-takeshi/code-learning-companion/pull/30) を main 向けに作成した。head `3fbbaa7` の CI [実行 41423741906](https://github.com/kushima-takeshi/code-learning-companion/actions/runs/41423741906) で `backend` と `frontend` が成功した。
