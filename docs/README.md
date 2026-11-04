@@ -10,7 +10,7 @@ Learning Companionは、送信内容を確認した問題・回答・フィー�
 | 文書 | 用途 |
 |---|---|
 | [伴走ルール](../AGENTS.md) | AIの読む順序、ユーザーが実装する進め方 |
-| [現在の作業](current-work.md) | 今どこまでできたか、次の一手、未決事項 |
+| [現在の作業](current-work.md) | 今どこまでできたか、次の一手、未決事項。過去の日付付き記録は archive |
 | [要件定義](../requirements.md) | 何を実現するか、対象外 |
 | [第二案・現行作業計画](implementation-plan-v2.md) | どの順番で作るか |
 | [設計概要](detailed-design.md) | 責任分担、共通データ、仕様への入口 |
@@ -30,9 +30,12 @@ Learning Companionは、送信内容を確認した問題・回答・フィー�
 - [旧フェーズ3設計](phase3-design.md): BYOK方式の旧草案。API・状態の定義を流用して実装しない。
 - [AI連携の検討経緯](ai-tool-integration-study.md): 収集方式などの調査履歴。後の方針は現行文書を参照。
 - [改訂前の文書一式](archive/2026-10-26-before-v2/README.md): 今回書き換えた要件・設計・仕様の原本。
+- [現在の作業の記録（2026-10）](archive/current-work-2026-10.md): `current-work.md` から移した2026-10の完了記録。
+- [現在の作業の記録（2026-11）](archive/current-work-2026-11.md): `current-work.md` から移した2026-11の完了記録。
 - [将来案](../future-ideas.md): 現在の必須要件ではない。
 
 ## 文書を更新するとき
 
 目的・範囲の変更は要件、振る舞いの変更は対応仕様、順序の変更は作業計画、実装進捗は現在の作業に記録する。
 関連する現行文書も整合させる。履歴資料を現行仕様へ戻さない。
+合意が振る舞いを変えるときは、対応する仕様の項目のそばに判断(日付)・理由・却下案を1行で添える。月の作業が終わったら、`current-work.md` のその月の日付付き節を `docs/archive/current-work-YYYY-MM.md` へ移す。
