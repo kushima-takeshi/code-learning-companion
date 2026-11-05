@@ -44,14 +44,22 @@ func (s *Service) Issue(ctx context.Context, userID, name string) (IssuedToken, 
 		return IssuedToken{}, ErrInvalidName
 	}
 
+	return issueToken(ctx, s.db, userID, name, s.now().UTC().Truncate(time.Microsecond))
+}
+
+// tokenWriter is implemented by both *sql.DB and *sql.Tx.
+type tokenWriter interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func issueToken(ctx context.Context, writer tokenWriter, userID, name string, createdAt time.Time) (IssuedToken, error) {
 	randomBytes := make([]byte, 32)
 	if _, err := rand.Read(randomBytes); err != nil {
 		return IssuedToken{}, fmt.Errorf("generate connection token: %w", err)
 	}
 	secret := "clc_" + hex.EncodeToString(randomBytes)
 	hash := sha256.Sum256([]byte(secret))
-	createdAt := s.now().UTC().Truncate(time.Microsecond)
-	token, err := scanToken(s.db.QueryRowContext(ctx, `
+	token, err := scanToken(writer.QueryRowContext(ctx, `
 		INSERT INTO connection_tokens (user_id, name, token_hash, created_at, expires_at)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, user_id, name, created_at, expires_at, revoked_at

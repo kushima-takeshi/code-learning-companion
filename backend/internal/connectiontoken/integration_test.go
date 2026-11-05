@@ -52,6 +52,7 @@ func TestMigrationIntegration(t *testing.T) {
 	if count != 0 {
 		t.Fatalf("所有者削除後のトークン件数: %d", count)
 	}
+	applyMigration(t, db, "000006_connection_reconnections.down.sql")
 	applyMigration(t, db, "000005_connection_tokens.down.sql")
 	var relation sql.NullString
 	if err := db.QueryRowContext(ctx, `SELECT to_regclass('connection_tokens')::text`).Scan(&relation); err != nil {
@@ -61,6 +62,7 @@ func TestMigrationIntegration(t *testing.T) {
 		t.Fatal("down後にテーブルが残っています")
 	}
 	applyMigration(t, db, "000005_connection_tokens.up.sql")
+	applyMigration(t, db, "000006_connection_reconnections.up.sql")
 }
 
 func newIntegrationDB(t *testing.T) *sql.DB {
@@ -93,6 +95,7 @@ func newIntegrationDB(t *testing.T) *sql.DB {
 	t.Cleanup(func() { db.Close() })
 	applyMigration(t, db, "000002_auth.up.sql")
 	applyMigration(t, db, "000005_connection_tokens.up.sql")
+	applyMigration(t, db, "000006_connection_reconnections.up.sql")
 	return db
 }
 

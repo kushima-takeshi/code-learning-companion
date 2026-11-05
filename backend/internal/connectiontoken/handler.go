@@ -38,6 +38,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handl
 	mux.Handle("POST /connection-tokens", protect(h.Issue))
 	mux.Handle("GET /connection-tokens", protect(h.List))
 	mux.Handle("POST /connection-tokens/{id}/revoke", protect(h.Revoke))
+	mux.Handle("POST /connection-tokens/{id}/reconnections", protect(h.StartReconnect))
+	mux.Handle("GET /connection-reconnections/{id}", protect(h.GetReconnect))
+	mux.Handle("POST /connection-reconnections/{id}/complete", protect(h.CompleteReconnect))
+	mux.Handle("POST /connection-reconnections/{id}/restart", protect(h.RestartReconnect))
 	return nil
 }
 

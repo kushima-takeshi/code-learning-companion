@@ -2,6 +2,7 @@ package learningrecord
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -9,12 +10,18 @@ import (
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/connectiontoken"
 )
 
-type Handler struct{ service *Service }
+type Handler struct {
+	service *Service
+	tokens  *connectiontoken.Service
+}
 
 func NewHandler(service *Service) *Handler { return &Handler{service: service} }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, tokens *connectiontoken.Service) {
-	mux.Handle("GET /learning-records", tokens.RequireToken(http.HandlerFunc(h.List)))
+	// Copy the handler so separate registrations never mutate each other's dependency.
+	listHandler := *h
+	listHandler.tokens = tokens
+	mux.Handle("GET /learning-records", tokens.RequireToken(http.HandlerFunc(listHandler.List)))
 	mux.Handle("POST /learning-records", tokens.RequireToken(http.HandlerFunc(h.Save)))
 	mux.Handle("GET /learning-records/{id}", tokens.RequireToken(http.HandlerFunc(h.Get)))
 }
@@ -35,6 +42,18 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
 		return
+	}
+	// A successful GET query is the server-side connection check. HEAD has no list body.
+	if r.Method == http.MethodGet {
+		if err := h.tokens.ConfirmReconnect(r.Context(), token.UserID, token.ID); err != nil {
+			if errors.Is(err, connectiontoken.ErrInvalidToken) {
+				w.Header().Set("WWW-Authenticate", "Bearer")
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			} else {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+			}
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, page)
 }

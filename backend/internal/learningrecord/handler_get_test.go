@@ -115,7 +115,7 @@ func TestLearningGetSecurityHTTPIntegration(t *testing.T) {
 		}
 	}
 	checkListError(t, recordRequest(h, "GET", "/learning-records/"+uuid.NewString(), active.Secret, "", "", nil), 500, "internal_error")
-	if _, err := db.Exec(`DROP TABLE connection_tokens`); err != nil {
+	if _, err := db.Exec(`DROP TABLE connection_tokens CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	res := recordRequest(h, "GET", "/learning-records/invalid", active.Secret, "", "", nil)
