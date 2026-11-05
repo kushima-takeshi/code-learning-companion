@@ -30,6 +30,13 @@ func newListHTTP(t *testing.T) (*sql.DB, http.Handler, *connectiontoken.Service)
 	if _, err := db.Exec(string(body)); err != nil {
 		t.Fatal(err)
 	}
+	body, err = os.ReadFile(filepath.Join("..", "..", "migrations", "000006_connection_reconnections.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(string(body)); err != nil {
+		t.Fatal(err)
+	}
 	tokens := connectiontoken.New(db)
 	mux := http.NewServeMux()
 	NewHandler(New(db)).RegisterRoutes(mux, tokens)
@@ -229,7 +236,7 @@ func TestLearningListAuthenticationIntegration(t *testing.T) {
 		}
 	}
 	checkListError(t, listRequest(h, "GET", "/learning-records", active.Secret, nil), 500, "internal_error")
-	if _, err := db.Exec(`DROP TABLE connection_tokens`); err != nil {
+	if _, err := db.Exec(`DROP TABLE connection_tokens CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	res := listRequest(h, "GET", "/learning-records", active.Secret, nil)
