@@ -136,6 +136,39 @@ stateDiagram-v2
 
 `Authenticate` は、置き換え先に `completed` 以外の再接続リクエストが付いているとき、状態が `pending` でも `confirmed` でもない、または再接続の期限が今以前なら拒否する。`pending` / `confirmed` で期限内なら通す。これが確認の通り道。完了後は、通常の90日と失効だけを見る。
 
+### 接続一覧 `GET /connection-tokens`
+
+作り終えていない鍵を、接続の一覧に出さない。
+入力は、WebログインのユーザーID。
+出力は本人のトークンで、行は更新しない。
+
+1. [handler.go Handler.List](../../backend/internal/connectiontoken/handler.go) が、Webログインのあとでサービスを呼ぶ。
+2. [manage.go Service.List](../../backend/internal/connectiontoken/manage.go) が、本人の `connection_tokens` を新しい順で読む。
+3. `new_token_id` が、`state` が `completed` でない再接続リクエストの行を外す。24時間以内の `pending` と `confirmed` も外す。`superseded` と `expired` も外す。
+4. 残った行を `scanToken` で `Token` にする。完了した置き換え先は残る。使えるかは `expires_at` と `revoked_at`。
+5. `Handler.List` が `id`、`name`、`created_at`、`expires_at`、`revoked_at` だけを返す。再接続の状態は足さない。
+
+```go
+query := `
+    SELECT id, user_id, name, created_at, expires_at, revoked_at
+    FROM connection_tokens
+    WHERE user_id=$1
+    AND NOT EXISTS (
+        SELECT 1 FROM connection_reconnections r
+        WHERE r.new_token_id=connection_tokens.id AND r.state <> 'completed'
+    )
+    ORDER BY created_at DESC, id DESC
+`
+rows, err := s.db.QueryContext(ctx, query, userID)
+for rows.Next() {
+    token, err := scanToken(rows)
+}
+```
+
+`QueryContext` が問い合わせと、引数のユーザーIDを実行する。`scanToken` が各行の `Scan` を呼ぶ。[NOT EXISTS](glossary.md#not-exists) は、内側が1行も無いトークンだけを残す。旧トークンは `new_token_id` ではないので残る。
+
+認証はこの問い合わせを使わない。期限内の `pending` と `confirmed` は、一覧に出なくても学習記録APIでは通る。
+
 ## 4. 関数ごとの表
 
 列は同じ。上はHTTP、下はサービスとSQL。1行が1関数。
@@ -167,9 +200,9 @@ stateDiagram-v2
 | [reconnect.go Service.CompleteReconnect](../../backend/internal/connectiontoken/reconnect.go) | 確認済みを置き換え完了にする | ユーザーID、再接続リクエストID | `Reconnection` | 旧トークンの失効と `completed`。失敗は両方戻る |
 | [reconnect.go Service.RestartReconnect](../../backend/internal/connectiontoken/reconnect.go) | 未完了を捨てて、発行し直す | ユーザーID、再接続リクエストID | `ReconnectResult` | 古い置き換え先の失効、`superseded`、新しい `pending` |
 | [authenticate.go Authenticate](../../backend/internal/connectiontoken/authenticate.go) | 秘密の文字列から、使えるトークンを特定する | 秘密の文字列 | `Token` か `ErrInvalidToken` | なし。期限内の `pending` / `confirmed` 以外の未完了置き換え先は拒否する |
-| [manage.go List](../../backend/internal/connectiontoken/manage.go) | 本人の接続トークンを新しい順で返す | ユーザーID | `[]Token` | なし。再接続リクエストは見ない |
+| [manage.go List](../../backend/internal/connectiontoken/manage.go) | 本人の接続を新しい順で返す。未完了の置き換え先は除く | ユーザーID | `[]Token` | なし。`state` が `completed` でない `new_token_id` を外す |
 
-`Handler.List`（[handler.go](../../backend/internal/connectiontoken/handler.go)）は、`manage.go List` の結果をJSONにするだけ。再接続の状態は足さない。
+`Handler.List`（[handler.go](../../backend/internal/connectiontoken/handler.go)）は、`manage.go List` の結果をJSONにするだけ。応答に再接続の状態は足さない。未完了の置き換え先は、行ごと返さない。
 
 `lockTarget` は、旧トークンの期限と失効を条件にしない。この扱いは [未決](#6-未決)。
 
@@ -183,6 +216,7 @@ stateDiagram-v2
 | 退役は `LEAST`、完了の旧トークンは `COALESCE` | 置き換え先は、使えなくなった早い時刻を残す。完了時の旧トークンは、すでに入っている失効時刻を上書きしない |
 | 時刻は関数で持つ | テストが時刻を固定する。ロックのあとに読むため、関数のまま渡す |
 | 列名を1か所にまとめる | SELECT、INSERT の RETURNING、`Scan` の順を揃える。順が崩れると別のフィールドに入る |
+| 一覧は未完了の置き換え先を出さない | 作りかけの鍵は、始めて10時間でも、24時間を過ぎても、やり直しで捨てたあとでも、接続の一覧に混ぜない。24時間超過のまま退役していない置き換え先は、失効日時が空で期限が約90日後なので、以前の一覧では有効な鍵に見えた。完了した置き換え先だけ、通常の鍵と同じく期限と失効で出す。認証は期限内の `pending` と `confirmed` を今までどおり通す |
 
 `completed` 以外の置き換え先を、次の旧トークンにしない。`pending`、`confirmed`、`superseded`、`expired` が対象で、`lockTarget` が409を返す。完了側は「旧トークン → 置き換え先」、開始側が「置き換え先 → その親の旧トークン」と逆にロックすると、互いを待ち続ける。拒否するので、その輪を作らない。
 
@@ -235,7 +269,7 @@ got, err := scanReconnect(row)
 
 ## 6. 未決
 
-仕様07に無く、[PR #29](https://github.com/kushima-takeshi/code-learning-companion/pull/29) のレビューで、実装側の判断として挙がった点が2つある。ここでは結論を足さない。
+[PR #29](https://github.com/kushima-takeshi/code-learning-companion/pull/29) のレビューで挙がった一覧の見せ方は、未完了の置き換え先を出さないことで閉じた。仕様は [07 の List](../specs/07-agent-connection.md)。ここでは結論を足さない点が1つ残る。
 
 ### 期限切れ・失効済みの旧トークンから始められる
 
@@ -244,18 +278,6 @@ got, err := scanReconnect(row)
 これは、通常の接続トークンの話。未完了・`superseded`・`expired` の置き換え先を、次の旧トークンにする操作は別で、コードは409にする。その拒否は仕様07に書いてある。
 
 仕様07は、期限切れの旧トークンを復活・延長しない、とは書く。期限切れや失効済みから、再接続を始めてよいかは書いていない。
-
-### 使えない置き換え先を、接続一覧が有効な形で返す
-
-[manage.go List](../../backend/internal/connectiontoken/manage.go) は `connection_tokens` だけを読む。再接続リクエストは見ない。置き換え先は、発行時に失効なし、期限は90日後で入る。
-
-期限内の `pending` / `confirmed` は、学習記録APIに使える。一覧に普通のトークンとして並ぶのは、確認の通り道でもある。
-
-使えないのは、24時間ちょうど以降なのに、まだ退役しておらず `revoked_at` が空の置き換え先。`Authenticate` は拒否する。`List` は拒否しない。失効日時は null、期限は約90日後のまま。有効フラグは無いが、失効でも期限切れでもない形で並ぶ。
-
-`GetReconnect` は同じ状況を、DBを変えずに `expired` と返す。一覧と状態取得で、見え方が違う。退役の UPDATE が走ったあとなら、`revoked_at` が入るので、一覧でも失効に見える。
-
-仕様07の一覧は、期限切れと失効済みも返す、と書く。認証できない置き換え先を、有効な接続と分けるかは書いていない。
 
 ## 7. 更新ルール
 

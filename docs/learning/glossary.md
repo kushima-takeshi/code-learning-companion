@@ -142,6 +142,19 @@ FOREIGN KEY (user_id, old_token_id) REFERENCES connection_tokens (user_id, id)
 
 場所: `backend/migrations/000006_connection_reconnections.up.sql`（関数ではない）。組を入れるのは `backend/internal/connectiontoken/reconnect.go` の `newReconnect`。main にはまだ無い。
 
+## NOT EXISTS
+
+内側の問い合わせが1行も返さないときだけ、外側の行を残す。接続一覧は、`state` が `completed` でない再接続リクエストの `new_token_id` になっているトークンを落とす。
+
+```sql
+AND NOT EXISTS (
+    SELECT 1 FROM connection_reconnections r
+    WHERE r.new_token_id = connection_tokens.id AND r.state <> 'completed'
+)
+```
+
+場所: `backend/internal/connectiontoken/manage.go` の `List`。この一覧の除外は main にまだ無い。認証の `NOT EXISTS` は条件が違い、期限内の `pending` と `confirmed` は通す。場所は `backend/internal/connectiontoken/authenticate.go` の `Authenticate`。
+
 ## 関数値（f と f() の違い）
 
 括弧が無い `time.Now` や `s.now` は、関数そのもの。まだ時刻は無い。括弧がある `s.now()` や `clock()` は、その場で関数を呼び、時刻が返る。
