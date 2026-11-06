@@ -77,6 +77,8 @@ func reconnectError(w http.ResponseWriter, err error) {
 		status, code = 404, "reconnection_not_found"
 	case errors.Is(err, ErrReconnectConflict):
 		status, code = 409, "reconnection_conflict"
+	case errors.Is(err, ErrTokenUnavailable):
+		status, code = 409, "token_unavailable"
 	}
 	writeManagementJSON(w, status, map[string]string{"error": code})
 }
