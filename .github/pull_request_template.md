@@ -7,15 +7,18 @@ PRの説明は、下の見出しの順で短く日本語を書く。
 
 ## 機能の解説
 
-この機能の目的・処理の流れ・設計判断をまとめた文書
+この機能の目的・処理の流れ・設計判断をまとめた文書。このPRで作った、または更新したノートだけを、目的1行と並べる。
 
 <!--
-機能のPRは下の2行を書く。<feature> はノートのファイル名、<branch> はPRのブランチ名に置き換える。
+1件につき、リンクと目的を1行ずつ書く。複数あればこの組を繰り返す。このPRに無いノートは書かない。
+<feature> はノートのファイル名、<branch> はPRのブランチ名に置き換える。
 文書だけのPR、機能以外のPRは「なし」と書く。
 -->
 
 - [docs/learning/<feature>.md](https://github.com/kushima-takeshi/code-learning-companion/blob/<branch>/docs/learning/<feature>.md)
-- 目的:
+  - 目的:
+- [docs/learning/<feature>.md](https://github.com/kushima-takeshi/code-learning-companion/blob/<branch>/docs/learning/<feature>.md)
+  - 目的:
 
 ## 何を変えたか
 
