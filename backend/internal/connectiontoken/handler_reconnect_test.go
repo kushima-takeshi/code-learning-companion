@@ -159,3 +159,74 @@ func TestReconnectHTTPProtectionIntegration(t *testing.T) {
 		checkHTTPError(t, managementRequest(h, tc.method, tc.path, "", cookie), 500, "internal_error")
 	}
 }
+
+func TestReconnectHTTPUnavailableTargetIntegration(t *testing.T) {
+	db := newIntegrationDB(t)
+	ctx := context.Background()
+	owner := createUser(t, db)
+	s := New(db)
+	h := managementHTTP(t, db)
+	cookie := webSession(t, db, owner)
+	counts := func(oldID string) (tokens, ops int) {
+		t.Helper()
+		if err := db.QueryRow(`SELECT count(*) FROM connection_tokens WHERE user_id=$1`, owner).Scan(&tokens); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.QueryRow(`SELECT count(*) FROM connection_reconnections WHERE old_token_id=$1`, oldID).Scan(&ops); err != nil {
+			t.Fatal(err)
+		}
+		return tokens, ops
+	}
+	rejectHTTP := func(t *testing.T, oldID string) {
+		t.Helper()
+		tokens, ops := counts(oldID)
+		res := managementRequest(h, "POST", "/connection-tokens/"+oldID+"/reconnections", "", cookie)
+		checkHTTPError(t, res, 409, "token_unavailable")
+		if strings.Contains(res.Body.String(), "clc_") || strings.Contains(res.Body.String(), "secret") {
+			t.Fatalf("rejected start leaked a secret: %s", res.Body.String())
+		}
+		if gotTokens, gotOps := counts(oldID); gotTokens != tokens || gotOps != ops {
+			t.Fatalf("created rows: tokens %d->%d ops %d->%d", tokens, gotTokens, ops, gotOps)
+		}
+	}
+
+	t.Run("期限切れは409 token_unavailableで行を増やさない", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "期限切れ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`UPDATE connection_tokens SET created_at=now()-interval '91 days', expires_at=now()-interval '1 day' WHERE id=$1`, issued.Token.ID); err != nil {
+			t.Fatal(err)
+		}
+		rejectHTTP(t, issued.Token.ID)
+	})
+	t.Run("失効済みは409 token_unavailableで行を増やさない", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "失効")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Revoke(ctx, owner, issued.Token.ID); err != nil {
+			t.Fatal(err)
+		}
+		rejectHTTP(t, issued.Token.ID)
+	})
+	t.Run("進行中の再送は旧トークンが期限切れでも200で同じ操作を返す", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "進行中")
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := "/connection-tokens/" + issued.Token.ID + "/reconnections"
+		first := readReconnectHTTP(t, managementRequest(h, "POST", path, "", cookie), 201)
+		if _, err := db.Exec(`UPDATE connection_tokens SET created_at=now()-interval '91 days', expires_at=now()-interval '1 second' WHERE id=$1`, issued.Token.ID); err != nil {
+			t.Fatal(err)
+		}
+		tokens, ops := counts(issued.Token.ID)
+		again := readReconnectHTTP(t, managementRequest(h, "POST", path, "", cookie), 200)
+		if again.Secret != "" || again.Reconnection.ID != first.Reconnection.ID || again.Reconnection.State != "pending" {
+			t.Fatalf("in-progress retry: %+v", again)
+		}
+		if gotTokens, gotOps := counts(issued.Token.ID); gotTokens != tokens || gotOps != ops {
+			t.Fatalf("retry created rows: tokens %d->%d ops %d->%d", tokens, gotTokens, ops, gotOps)
+		}
+	})
+}
