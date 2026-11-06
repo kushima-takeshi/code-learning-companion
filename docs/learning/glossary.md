@@ -2,7 +2,47 @@
 
 コードを説明するとき、ここに無い用語で迷ったら1項目足す。説明では、繰り返さずにこのファイルへリンクする。
 場所は `ファイル:関数`。SQLの定義だけにあるものは、マイグレーションのファイル名を書く。
-main にまだ無いものは、項目の末尾にそう書く。対象は [PR #29](https://github.com/kushima-takeshi/code-learning-companion/pull/29)（ブランチ `codex/connection-reconnect-api`）で確認した。
+main にまだ無いものは、項目の末尾にそう書く。再接続は main にある。説明の一覧は [学習ノート](README.md)。
+
+## 旧トークン
+
+差し替える接続。再接続リクエストの `old_token_id`。
+
+```go
+old, err := lockTarget(ctx, tx, userID, oldID)
+```
+
+場所: `backend/internal/connectiontoken/reconnect.go` の `lockTarget`。開始は [再接続の開始](reconnect-start.md)。
+
+## 置き換え先
+
+新しく発行する接続。`new_token_id`。秘密の文字列は、開始とやり直しの新規発行の応答だけ。
+
+```go
+issued, err := issueToken(ctx, tx, old.UserID, old.Name, now)
+```
+
+場所: `backend/internal/connectiontoken/reconnect.go` の `newReconnect`。発行の関数は `backend/internal/connectiontoken/service.go` の `issueToken`。
+
+## 再接続リクエスト
+
+表 `connection_reconnections` の1行。型は `Reconnection`。保存する状態は `pending` `confirmed` `completed` `superseded` `expired`。`unavailable` は応答だけの語で、表には書かない。
+
+```go
+const reconnectColumns = `id, user_id, old_token_id, new_token_id, state, created_at, expires_at, confirmed_at, completed_at`
+```
+
+場所: `backend/internal/connectiontoken/reconnect.go` の `Reconnection`。表示の読み分けは [再接続の状態取得](reconnect-status.md)。
+
+## 退役
+
+置き換え先を失効し、再接続リクエストの状態を `superseded` か `expired` にする。関数は `retireReconnect`。
+
+```go
+err := retireReconnect(ctx, tx, r, "superseded", now)
+```
+
+場所: `backend/internal/connectiontoken/reconnect.go` の `retireReconnect`。期限後の開始は [再接続の開始](reconnect-start.md)。やり直しは [再接続のやり直し](reconnect-restart.md)。
 
 ## Scan と &
 
@@ -99,7 +139,7 @@ row := tx.QueryRowContext(ctx, query, userID, oldID)
 token, err := scanToken(row)
 ```
 
-場所: `backend/internal/connectiontoken/reconnect.go` の `lockTarget`。同じロックは `lockReconnect` と `activeReplacement`。main にはまだ無い。
+場所: `backend/internal/connectiontoken/reconnect.go` の `lockTarget`。同じロックは `lockReconnect` と `activeReplacement`。開始は [再接続の開始](reconnect-start.md)。
 
 ## COALESCE / LEAST
 
@@ -118,7 +158,7 @@ query := `UPDATE connection_tokens SET revoked_at=LEAST(COALESCE(revoked_at,$2),
 _, err := tx.ExecContext(ctx, query, r.NewTokenID, at)
 ```
 
-場所: `COALESCE` だけは `backend/internal/connectiontoken/manage.go` の `Revoke`。`LEAST` は `backend/internal/connectiontoken/reconnect.go` の `retireReconnect`。`LEAST` のファイルは main にはまだ無い。
+場所: `COALESCE` だけは `backend/internal/connectiontoken/manage.go` の `Revoke`。完了の旧トークンも `COALESCE` で、`backend/internal/connectiontoken/reconnect.go` の `CompleteReconnect`。`LEAST` は同ファイルの `retireReconnect`。説明は [再接続の完了](reconnect-complete.md) と [再接続の開始](reconnect-start.md)。
 
 ## 部分一意インデックス
 
@@ -130,7 +170,7 @@ CREATE UNIQUE INDEX connection_reconnections_current_idx
     WHERE state IN ('pending', 'confirmed', 'completed');
 ```
 
-場所: `backend/migrations/000006_connection_reconnections.up.sql`（関数ではない）。同じ状態の集まりを読むのは `backend/internal/connectiontoken/reconnect.go` の `StartReconnect`。main にはまだ無い。
+場所: `backend/migrations/000006_connection_reconnections.up.sql`（関数ではない）。同じ状態の集まりを読むのは `backend/internal/connectiontoken/reconnect.go` の `StartReconnect`。説明は [再接続の開始](reconnect-start.md)。
 
 ## 複合外部キー
 
@@ -140,7 +180,7 @@ CREATE UNIQUE INDEX connection_reconnections_current_idx
 FOREIGN KEY (user_id, old_token_id) REFERENCES connection_tokens (user_id, id)
 ```
 
-場所: `backend/migrations/000006_connection_reconnections.up.sql`（関数ではない）。組を入れるのは `backend/internal/connectiontoken/reconnect.go` の `newReconnect`。main にはまだ無い。
+場所: `backend/migrations/000006_connection_reconnections.up.sql`（関数ではない）。組を入れるのは `backend/internal/connectiontoken/reconnect.go` の `newReconnect`。説明は [再接続の開始](reconnect-start.md)。
 
 ## NOT EXISTS
 
@@ -153,7 +193,7 @@ AND NOT EXISTS (
 )
 ```
 
-場所: `backend/internal/connectiontoken/manage.go` の `List`。この一覧の除外は main にまだ無い。認証の `NOT EXISTS` は条件が違い、期限内の `pending` と `confirmed` は通す。場所は `backend/internal/connectiontoken/authenticate.go` の `Authenticate`。
+場所: `backend/internal/connectiontoken/manage.go` の `List`。説明は [接続一覧](token-list.md)。認証の `NOT EXISTS` は条件が違い、期限内の `pending` と `confirmed` は通す。場所は `backend/internal/connectiontoken/authenticate.go` の `Authenticate`。説明は [再接続の確認](reconnect-confirm.md)。
 
 ## 関数値（f と f() の違い）
 
@@ -177,7 +217,7 @@ now, err = activeReplacement(ctx, tx, r, s.now)
 now := clock().UTC().Truncate(time.Microsecond)
 ```
 
-場所: `backend/internal/connectiontoken/service.go` の `New` と `Issue`。ロックのあとに読む例は `backend/internal/connectiontoken/reconnect.go` の `ConfirmReconnect` と `activeReplacement`。再接続の2関数は main にはまだ無い。
+場所: `backend/internal/connectiontoken/service.go` の `New` と `Issue`。ロックのあとに読む例は `backend/internal/connectiontoken/reconnect.go` の `ConfirmReconnect` と `activeReplacement`。説明は [再接続の確認](reconnect-confirm.md) と [再接続の完了](reconnect-complete.md)。
 
 ## interface
 

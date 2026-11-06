@@ -1,3 +1,20 @@
+# 再接続の学習ノート（分割前）
+
+2026-11-06に `docs/learning/reconnect.md` から移した。履歴であり、今の振る舞いの正本ではない。
+今の説明は機能ごとのノート。一覧は [学習ノート](../learning/README.md)。
+
+- [再接続の開始](../learning/reconnect-start.md)
+- [再接続の状態取得](../learning/reconnect-status.md)
+- [再接続の完了](../learning/reconnect-complete.md)
+- [再接続のやり直し](../learning/reconnect-restart.md)
+- [再接続の確認](../learning/reconnect-confirm.md)
+- [接続一覧](../learning/token-list.md)
+
+本文は移動時のまま。末尾の「更新ルール」（新しい説明をこのノートへ足す）は、分割のときにやめた。節へ織り込む規則は [AGENTS.md](../../AGENTS.md) の「学習ノート」。
+用語集へのリンクだけ、この場所から届くよう `../learning/glossary.md` に直した。
+
+---
+
 # 再接続の学習ノート
 
 仕様は [07 の再接続API](../specs/07-agent-connection.md)。画面は未実装。コードは `connectiontoken` と、学習記録一覧の確認。用語はこの3つに固定する。
@@ -168,7 +185,7 @@ for rows.Next() {
 }
 ```
 
-`QueryContext` が問い合わせと、引数のユーザーIDを実行する。`scanToken` が各行の `Scan` を呼ぶ。[NOT EXISTS](glossary.md#not-exists) は、内側が1行も無いトークンだけを残す。旧トークンは `new_token_id` ではないので残る。
+`QueryContext` が問い合わせと、引数のユーザーIDを実行する。`scanToken` が各行の `Scan` を呼ぶ。[NOT EXISTS](../learning/glossary.md#not-exists) は、内側が1行も無いトークンだけを残す。旧トークンは `new_token_id` ではないので残る。
 
 認証はこの問い合わせを使わない。期限内の `pending` と `confirmed` は、一覧に出なくても学習記録APIでは通る。
 
