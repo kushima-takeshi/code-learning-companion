@@ -257,19 +257,11 @@ func TestReconnectRollbackAndTargetIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Reconnecting a naturally expired or manually revoked target must not revive it.
-	if _, err := db.Exec(`UPDATE connection_tokens SET created_at=now()-interval '91 days',expires_at=now()-interval '1 day' WHERE id=$1`, old.Token.ID); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Revoke(ctx, owner, old.Token.ID); err != nil {
-		t.Fatal(err)
-	}
+	// A live reconnection is required for the rollback and down-migration checks.
+	// Expired and revoked targets are covered by TestReconnectUnavailableTargetIntegration.
 	first, err := s.StartReconnect(ctx, owner, old.Token.ID)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if _, err := s.Authenticate(ctx, old.Secret); !errors.Is(err, ErrInvalidToken) {
-		t.Fatal("expired old revived")
 	}
 	for _, action := range []func(context.Context, string, string) error{
 		func(c context.Context, u, id string) error { _, e := s.GetReconnect(c, u, id); return e },
@@ -391,4 +383,205 @@ func TestReconnectCompletionRollbackIntegration(t *testing.T) {
 	if err := db.QueryRow(`SELECT count(*) FROM connection_reconnections`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("owner cascade: %d %v", count, err)
 	}
+}
+
+func TestReconnectUnavailableTargetIntegration(t *testing.T) {
+	db := newIntegrationDB(t)
+	s := New(db)
+	base := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
+	clock := base
+	s.now = func() time.Time { return clock }
+	ctx := context.Background()
+	owner := createUser(t, db)
+
+	counts := func(oldID string) (tokens, ops int) {
+		t.Helper()
+		if err := db.QueryRow(`SELECT count(*) FROM connection_tokens WHERE user_id=$1`, owner).Scan(&tokens); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.QueryRow(`SELECT count(*) FROM connection_reconnections WHERE old_token_id=$1`, oldID).Scan(&ops); err != nil {
+			t.Fatal(err)
+		}
+		return tokens, ops
+	}
+	rejectStart := func(t *testing.T, oldID string) {
+		t.Helper()
+		tokens, ops := counts(oldID)
+		_, err := s.StartReconnect(ctx, owner, oldID)
+		if !errors.Is(err, ErrTokenUnavailable) {
+			t.Fatalf("start: %v", err)
+		}
+		if gotTokens, gotOps := counts(oldID); gotTokens != tokens || gotOps != ops {
+			t.Fatalf("created rows: tokens %d->%d ops %d->%d", tokens, gotTokens, ops, gotOps)
+		}
+	}
+
+	t.Run("期限の1日前は拒否しトークンも再接続も増やさない", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "期限切れ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		expiredAt := base.Add(-24 * time.Hour)
+		if _, err := db.Exec(`UPDATE connection_tokens SET created_at=$2, expires_at=$3 WHERE id=$1`, issued.Token.ID, expiredAt.Add(-Lifetime), expiredAt); err != nil {
+			t.Fatal(err)
+		}
+		rejectStart(t, issued.Token.ID)
+		if _, err := s.Authenticate(ctx, issued.Secret); !errors.Is(err, ErrInvalidToken) {
+			t.Fatal("expired token revived")
+		}
+	})
+	t.Run("期限ちょうどは拒否しトークンも再接続も増やさない", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "期限ちょうど")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`UPDATE connection_tokens SET created_at=$2, expires_at=$3 WHERE id=$1`, issued.Token.ID, base.Add(-Lifetime), base); err != nil {
+			t.Fatal(err)
+		}
+		rejectStart(t, issued.Token.ID)
+		if _, err := s.Authenticate(ctx, issued.Secret); !errors.Is(err, ErrInvalidToken) {
+			t.Fatal("exact expiry revived")
+		}
+	})
+	t.Run("失効済みは拒否しトークンも再接続も増やさない", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "失効")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Revoke(ctx, owner, issued.Token.ID); err != nil {
+			t.Fatal(err)
+		}
+		rejectStart(t, issued.Token.ID)
+		var expires time.Time
+		if err := db.QueryRow(`SELECT expires_at FROM connection_tokens WHERE id=$1 AND revoked_at IS NOT NULL`, issued.Token.ID).Scan(&expires); err != nil {
+			t.Fatal(err)
+		}
+		if !expires.Equal(issued.Token.ExpiresAt) {
+			t.Fatalf("expiry changed: %v", expires)
+		}
+		if _, err := s.Authenticate(ctx, issued.Secret); !errors.Is(err, ErrInvalidToken) {
+			t.Fatal("revoked token revived")
+		}
+	})
+	t.Run("期限の1マイクロ秒前は開始できる", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "期限直前")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`UPDATE connection_tokens SET expires_at=$2 WHERE id=$1`, issued.Token.ID, base.Add(time.Microsecond)); err != nil {
+			t.Fatal(err)
+		}
+		tokens, ops := counts(issued.Token.ID)
+		started, err := s.StartReconnect(ctx, owner, issued.Token.ID)
+		if err != nil || started.Secret == "" || started.Operation.State != "pending" {
+			t.Fatalf("start before expiry: %+v %v", started.Operation, err)
+		}
+		if gotTokens, gotOps := counts(issued.Token.ID); gotTokens != tokens+1 || gotOps != ops+1 {
+			t.Fatalf("rows: tokens %d ops %d", gotTokens, gotOps)
+		}
+	})
+	t.Run("進行中は旧トークンが期限切れでも同じ操作を返す", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "進行中の期限切れ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		started, err := s.StartReconnect(ctx, owner, issued.Token.ID)
+		if err != nil || started.Secret == "" {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`UPDATE connection_tokens SET created_at=$2, expires_at=$3 WHERE id=$1`, issued.Token.ID, base.Add(-Lifetime), base); err != nil {
+			t.Fatal(err)
+		}
+		tokens, ops := counts(issued.Token.ID)
+		again, err := s.StartReconnect(ctx, owner, issued.Token.ID)
+		if err != nil || again.Secret != "" || again.Operation.ID != started.Operation.ID || again.Operation.State != "pending" {
+			t.Fatalf("in-progress retry: %+v %v", again, err)
+		}
+		if gotTokens, gotOps := counts(issued.Token.ID); gotTokens != tokens || gotOps != ops {
+			t.Fatalf("retry created rows: tokens %d->%d ops %d->%d", tokens, gotTokens, ops, gotOps)
+		}
+		if _, err := s.Authenticate(ctx, issued.Secret); !errors.Is(err, ErrInvalidToken) {
+			t.Fatal("expired old revived")
+		}
+		if _, err := s.Authenticate(ctx, started.Secret); err != nil {
+			t.Fatalf("replacement: %v", err)
+		}
+	})
+	t.Run("進行中は旧トークンを失効しても同じ操作を返す", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "進行中の失効")
+		if err != nil {
+			t.Fatal(err)
+		}
+		started, err := s.StartReconnect(ctx, owner, issued.Token.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Revoke(ctx, owner, issued.Token.ID); err != nil {
+			t.Fatal(err)
+		}
+		tokens, ops := counts(issued.Token.ID)
+		again, err := s.StartReconnect(ctx, owner, issued.Token.ID)
+		if err != nil || again.Secret != "" || again.Operation.ID != started.Operation.ID {
+			t.Fatalf("revoked in-progress retry: %+v %v", again, err)
+		}
+		if gotTokens, gotOps := counts(issued.Token.ID); gotTokens != tokens || gotOps != ops {
+			t.Fatalf("retry created rows: tokens %d->%d ops %d->%d", tokens, gotTokens, ops, gotOps)
+		}
+	})
+	t.Run("完了済みの遅延再送は失効後も完了を返す", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "完了済み")
+		if err != nil {
+			t.Fatal(err)
+		}
+		started, err := s.StartReconnect(ctx, owner, issued.Token.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.ConfirmReconnect(ctx, owner, started.Operation.NewTokenID); err != nil {
+			t.Fatal(err)
+		}
+		completed, err := s.CompleteReconnect(ctx, owner, started.Operation.ID)
+		if err != nil || completed.State != "completed" {
+			t.Fatalf("complete: %+v %v", completed, err)
+		}
+		tokens, ops := counts(issued.Token.ID)
+		again, err := s.StartReconnect(ctx, owner, issued.Token.ID)
+		if err != nil || again.Secret != "" || again.Operation.ID != completed.ID || again.Operation.State != "completed" {
+			t.Fatalf("completed retry: %+v %v", again, err)
+		}
+		if gotTokens, gotOps := counts(issued.Token.ID); gotTokens != tokens || gotOps != ops {
+			t.Fatalf("retry created rows: tokens %d->%d ops %d->%d", tokens, gotTokens, ops, gotOps)
+		}
+		if _, err := s.Authenticate(ctx, issued.Secret); !errors.Is(err, ErrInvalidToken) {
+			t.Fatal("completed old token revived")
+		}
+	})
+	t.Run("24時間を過ぎた未完了は期限切れの旧トークンから作り直さない", func(t *testing.T) {
+		issued, err := s.Issue(ctx, owner, "24時間後")
+		if err != nil {
+			t.Fatal(err)
+		}
+		started, err := s.StartReconnect(ctx, owner, issued.Token.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		prev := clock
+		t.Cleanup(func() { clock = prev })
+		clock = started.Operation.ExpiresAt
+		if _, err := db.Exec(`UPDATE connection_tokens SET expires_at=$2 WHERE id=$1`, issued.Token.ID, clock); err != nil {
+			t.Fatal(err)
+		}
+		rejectStart(t, issued.Token.ID)
+		var state string
+		if err := db.QueryRow(`SELECT state FROM connection_reconnections WHERE id=$1`, started.Operation.ID).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state != "pending" {
+			t.Fatalf("retired on rejection: %s", state)
+		}
+		var active int
+		if err := db.QueryRow(`SELECT count(*) FROM connection_tokens WHERE id=$1 AND revoked_at IS NULL`, started.Operation.NewTokenID).Scan(&active); err != nil || active != 1 {
+			t.Fatalf("replacement revoked on rejection: %d %v", active, err)
+		}
+	})
 }

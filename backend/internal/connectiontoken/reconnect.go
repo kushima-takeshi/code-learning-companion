@@ -13,6 +13,7 @@ const ReconnectLifetime = 24 * time.Hour
 var (
 	ErrReconnectNotFound = errors.New("reconnection not found")
 	ErrReconnectConflict = errors.New("reconnection cannot proceed in its current state")
+	ErrTokenUnavailable  = errors.New("connection token is expired or revoked")
 )
 
 // Reconnection contains metadata only. It never holds a token secret or hash.
@@ -107,13 +108,17 @@ func (s *Service) StartReconnect(ctx context.Context, userID, oldID string) (Rec
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ReconnectResult{}, err
 	}
-	if err == nil {
-		if current.State == "completed" || now.Before(current.ExpiresAt) {
-			if err := tx.Commit(); err != nil {
-				return ReconnectResult{}, err
-			}
-			return ReconnectResult{Operation: current}, nil
+	if err == nil && (current.State == "completed" || now.Before(current.ExpiresAt)) {
+		if err := tx.Commit(); err != nil {
+			return ReconnectResult{}, err
 		}
+		return ReconnectResult{Operation: current}, nil
+	}
+	// A new operation would mint a token for an unusable connection. Retries above stay available.
+	if tokenUnavailable(old, now) {
+		return ReconnectResult{}, ErrTokenUnavailable
+	}
+	if err == nil {
 		if err := retireReconnect(ctx, tx, current, "expired", current.ExpiresAt); err != nil {
 			return ReconnectResult{}, err
 		}
@@ -126,6 +131,10 @@ func (s *Service) StartReconnect(ctx context.Context, userID, oldID string) (Rec
 		return ReconnectResult{}, fmt.Errorf("start reconnection: %w", err)
 	}
 	return result, nil
+}
+
+func tokenUnavailable(token Token, now time.Time) bool {
+	return token.RevokedAt != nil || !now.Before(token.ExpiresAt)
 }
 
 // GetReconnect is read-only. Expiry and manual revocation are reflected without a cleanup job.

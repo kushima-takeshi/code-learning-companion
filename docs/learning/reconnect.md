@@ -35,7 +35,7 @@ stateDiagram-v2
 
 | きっかけ | 遷移 | DB |
 |---|---|---|
-| 初回の開始。進行中も完了もない | なし → `pending` | 書く。置き換え先も発行する |
+| 初回の開始。進行中も完了もない。旧トークンは使える | なし → `pending` | 書く。置き換え先も発行する |
 | 期限内の開始の再送 | `pending` か `confirmed` のまま | 書かない。秘密の文字列は返さない |
 | 完了済みへの開始の再送 | `completed` のまま | 書かない。次の再接続は、置き換え先を旧トークンにする |
 | 置き換え先で `GET /learning-records` が成功 | `pending` → `confirmed` | 書く。`confirmed_at` は最初の1回 |
@@ -43,7 +43,9 @@ stateDiagram-v2
 | Webの完了。期限内で、置き換え先が有効 | `confirmed` → `completed` | 書く。旧トークンを失効し、`completed_at` を入れる |
 | 完了の再送 | `completed` のまま | 同じ完了時刻のまま |
 | 期限内のやり直し | その行は `superseded`。新しい行が `pending` | 書く。古い置き換え先を失効し、新しい置き換え先を発行する |
-| 期限後に、同じ旧トークンへ開始 | その行は `expired`。新しい行が `pending` | 書く。失効時刻は期限ちょうど |
+| 再接続の期限後に、同じ旧トークンへ開始。旧トークンはまだ使える | その行は `expired`。新しい行が `pending` | 書く。失効時刻は期限ちょうど |
+| 旧トークンが期限ちょうど以降、または失効済み。返す進行中も完了もない | 変えない。`ErrTokenUnavailable` | 書かない。新しいトークンも行も作らない |
+| 再接続の期限後の未完了で、旧トークンも使えない | 変えない。`ErrTokenUnavailable`。退役しない | 書かない |
 | 状態取得。`pending` か `confirmed` で期限ちょうど以降 | 応答だけ `expired` | 書かない。行は元の状態のまま |
 | 状態取得。期限内だが、置き換え先が失効か、トークン期限切れ | 応答だけ `unavailable` | 書かない。やり直しはできる |
 | 期限後の完了とやり直し。`superseded` や `expired` の行の完了・やり直し | 変えない。409 | 書かない |
@@ -70,10 +72,11 @@ stateDiagram-v2
 | 3 | [reconnect.go Service.StartReconnect](../../backend/internal/connectiontoken/reconnect.go) | トランザクション開始 |
 | 4 | 同ファイル `lockTarget` | 旧トークンを `FOR UPDATE`。無ければ `ErrTokenNotFound`（HTTPは404）。`completed` 以外の置き換え先なら409 |
 | 5 | 同ファイル `StartReconnect` 内の SELECT | その旧トークンの `pending` / `confirmed` / `completed` を1件読む |
-| 6 | 期限切れなら `retireReconnect` | 置き換え先の `revoked_at` と、状態 `expired` |
-| 7 | 新規なら `newReconnect` → [service.go issueToken](../../backend/internal/connectiontoken/service.go) | 置き換え先を INSERT。再接続リクエストを `pending` で INSERT |
-| 8 | 秘密の文字列が空の再送だけ、`Handler.StartReconnect` が `GetReconnect` | 表示用の状態を読み直す。更新しない |
-| 9 | 同ファイル `writeReconnect` か `reconnectError` | なし。新規は201。再送は200 |
+| 6 | 同ファイル `tokenUnavailable` | 再送でなければ見る。期限ちょうど以降か失効済みなら `ErrTokenUnavailable`。退役しない |
+| 7 | 再接続の期限切れで、旧トークンは使えるなら `retireReconnect` | 置き換え先の `revoked_at` と、状態 `expired` |
+| 8 | 新規なら `newReconnect` → [service.go issueToken](../../backend/internal/connectiontoken/service.go) | 置き換え先を INSERT。再接続リクエストを `pending` で INSERT |
+| 9 | 秘密の文字列が空の再送だけ、`Handler.StartReconnect` が `GetReconnect` | 表示用の状態を読み直す。更新しない |
+| 10 | 同ファイル `writeReconnect` か `reconnectError` | なし。新規は201。再送は200。使えない旧トークンの新規開始は409 |
 
 ### 状態取得 `GET /connection-reconnections/{id}`
 
@@ -177,10 +180,10 @@ for rows.Next() {
 |---|---|---|---|---|
 | [handler.go RegisterRoutes](../../backend/internal/connectiontoken/handler.go) | 4本の再接続ルートを、WebログインとCSRFの後ろに載せる | mux、認証、信頼するOrigin | 登録エラーか nil | なし |
 | [handler_reconnect.go reconnectRequest](../../backend/internal/connectiontoken/handler_reconnect.go) | パスのUUID以外を受け取らない | HTTP。開始ならトークンID扱い | ユーザーIDとID。不可なら処理済み | なし。401、400、413を書く |
-| [handler_reconnect.go reconnectError](../../backend/internal/connectiontoken/handler_reconnect.go) | サービスエラーを短いコードにする | error | なし | なし。404、409、ほかは500 |
+| [handler_reconnect.go reconnectError](../../backend/internal/connectiontoken/handler_reconnect.go) | サービスエラーを短いコードにする | error | なし | なし。404、409、ほかは500。`ErrTokenUnavailable` は `token_unavailable` |
 | [handler_reconnect.go publicReconnect](../../backend/internal/connectiontoken/handler_reconnect.go) | 応答に出してよい項目だけにする | 再接続リクエスト | JSON用の構造体 | なし。所有者もハッシュも出さない |
 | [handler_reconnect.go writeReconnect](../../backend/internal/connectiontoken/handler_reconnect.go) | 再接続リクエストと、あるときだけ秘密の文字列を書く | 再接続リクエスト、秘密の文字列、status | なし | なし。空の秘密の文字列はJSONに出さない |
-| [handler_reconnect.go Handler.StartReconnect](../../backend/internal/connectiontoken/handler_reconnect.go) | 開始のHTTP入口 | 旧トークンのパス | 201か200 | サービスが更新する。再送は `GetReconnect` で表示を揃える |
+| [handler_reconnect.go Handler.StartReconnect](../../backend/internal/connectiontoken/handler_reconnect.go) | 開始のHTTP入口 | 旧トークンのパス | 201か200。使えない新規開始は409 | サービスが更新する。再送は `GetReconnect` で表示を揃える。拒否は何も書かない |
 | [handler_reconnect.go Handler.GetReconnect](../../backend/internal/connectiontoken/handler_reconnect.go) | 状態取得のHTTP入口 | 再接続リクエストのパス | 200 | なし |
 | [handler_reconnect.go Handler.CompleteReconnect](../../backend/internal/connectiontoken/handler_reconnect.go) | 完了のHTTP入口 | 再接続リクエストのパス | 200 | サービスが、旧トークンと状態を更新する |
 | [handler_reconnect.go Handler.RestartReconnect](../../backend/internal/connectiontoken/handler_reconnect.go) | やり直しのHTTP入口 | 再接続リクエストのパス | 201 | サービスが、古い置き換え先を退役し、新しい行を作る |
@@ -194,7 +197,8 @@ for rows.Next() {
 | [reconnect.go newReconnect](../../backend/internal/connectiontoken/reconnect.go) | `pending` の再接続リクエストと置き換え先を作る | 旧トークン、今 | 再接続リクエストと秘密の文字列 | 置き換え先1行と、再接続リクエスト1行。名前は旧トークンを写す |
 | [reconnect.go retireReconnect](../../backend/internal/connectiontoken/reconnect.go) | 置き換え先を使えなくし、再接続リクエストの状態を変える | 再接続リクエスト、次の状態、時刻 | error | 置き換え先の `revoked_at`。状態を `superseded` か `expired` |
 | [reconnect.go activeReplacement](../../backend/internal/connectiontoken/reconnect.go) | 置き換え先が今も使えるか見る。見た時刻を返す | 再接続リクエスト、時刻の関数 | マイクロ秒まで切った今 | データは変えない。置き換え先行をロックする |
-| [reconnect.go Service.StartReconnect](../../backend/internal/connectiontoken/reconnect.go) | 開始。再送は同じ行を返し、秘密の文字列は空 | ユーザーID、旧トークンID | `ReconnectResult` | 新規か、期限切れの退役と新規。再送は更新しない |
+| [reconnect.go tokenUnavailable](../../backend/internal/connectiontoken/reconnect.go) | 旧トークンが今も使えるか見る | 旧トークン、今 | 使えないなら true | なし。`revoked_at` がある、または期限ちょうど以降 |
+| [reconnect.go Service.StartReconnect](../../backend/internal/connectiontoken/reconnect.go) | 開始。再送は同じ行を返し、秘密の文字列は空 | ユーザーID、旧トークンID | `ReconnectResult` | 使える旧トークンの新規か、使えるときの退役と新規。使えない新規開始は拒否し、何も書かない。再送は更新しない |
 | [reconnect.go Service.GetReconnect](../../backend/internal/connectiontoken/reconnect.go) | 表示用の状態を読む。掃除ジョブは使わない | ユーザーID、再接続リクエストID | `Reconnection` | なし |
 | [reconnect.go Service.ConfirmReconnect](../../backend/internal/connectiontoken/reconnect.go) | 一覧成功を記録する。管理権限は渡さない | ユーザーID、置き換え先のトークンID | errorか nil | `pending` だけ `confirmed`。旧トークンは失効しない |
 | [reconnect.go Service.CompleteReconnect](../../backend/internal/connectiontoken/reconnect.go) | 確認済みを置き換え完了にする | ユーザーID、再接続リクエストID | `Reconnection` | 旧トークンの失効と `completed`。失敗は両方戻る |
@@ -204,7 +208,7 @@ for rows.Next() {
 
 `Handler.List`（[handler.go](../../backend/internal/connectiontoken/handler.go)）は、`manage.go List` の結果をJSONにするだけ。応答に再接続の状態は足さない。未完了の置き換え先は、行ごと返さない。
 
-`lockTarget` は、旧トークンの期限と失効を条件にしない。この扱いは [未決](#6-未決)。
+`lockTarget` は、旧トークンの期限と失効を条件にしない。確認・完了・やり直しもここを通る。新規開始の拒否は `StartReconnect` が、再送を返したあとに行う。
 
 ## 5. なぜそうしたか
 
@@ -215,6 +219,7 @@ for rows.Next() {
 | 期限を2回見る | 置き換え先のロック待ちで、24時間ちょうどを越えることがある。待つ前と、待ったあとの両方で見る |
 | 退役は `LEAST`、完了の旧トークンは `COALESCE` | 置き換え先は、使えなくなった早い時刻を残す。完了時の旧トークンは、すでに入っている失効時刻を上書きしない |
 | 時刻は関数で持つ | テストが時刻を固定する。ロックのあとに読むため、関数のまま渡す |
+| 使えない旧トークンの拒否は `StartReconnect` | 新しい操作を作る直前だけ見る。`lockTarget` に置くと、失効済み旧トークンの完了や、24時間以内のやり直しまで落ちる |
 | 列名を1か所にまとめる | SELECT、INSERT の RETURNING、`Scan` の順を揃える。順が崩れると別のフィールドに入る |
 | 一覧は未完了の置き換え先を出さない | 作りかけの鍵は、始めて10時間でも、24時間を過ぎても、やり直しで捨てたあとでも、接続の一覧に混ぜない。24時間超過のまま退役していない置き換え先は、失効日時が空で期限が約90日後なので、以前の一覧では有効な鍵に見えた。完了した置き換え先だけ、通常の鍵と同じく期限と失効で出す。認証は期限内の `pending` と `confirmed` を今までどおり通す |
 
@@ -267,18 +272,23 @@ got, err := scanReconnect(row)
 
 途中で return すると、`defer` の `Rollback` で、そのトランザクションの更新は残らない。`Commit` のあとの `Rollback` は、確定済みを取り消さない。
 
-## 6. 未決
+## 6. 期限切れ・失効済みでは新しい再接続を始めない
 
-[PR #29](https://github.com/kushima-takeshi/code-learning-companion/pull/29) のレビューで挙がった一覧の見せ方は、未完了の置き換え先を出さないことで閉じた。仕様は [07 の List](../specs/07-agent-connection.md)。ここでは結論を足さない点が1つ残る。
+目的は、使えない旧トークンから新しい再接続を始めないこと。入力は旧トークンで、期限ちょうど以降、または `revoked_at` がある。更新はしない。新しいトークンも再接続リクエストも作らない。
 
-### 期限切れ・失効済みの旧トークンから始められる
+[reconnect.go Service.StartReconnect](../../backend/internal/connectiontoken/reconnect.go) が、`s.now` で切った今を見る。`tokenUnavailable` が真なら `ErrTokenUnavailable`。HTTPは [handler_reconnect.go reconnectError](../../backend/internal/connectiontoken/handler_reconnect.go) が409 `token_unavailable`。
 
-`lockTarget` は、ユーザーIDと旧トークンIDだけを見る。`expires_at` と `revoked_at` ではねない。だから `StartReconnect` は、期限切れの旧トークンでも、失効済みの旧トークンでも、再接続リクエストを作る。旧トークンの期限と失効時刻は戻さない。テストが見ているのも、復活しないことだけ。
+1. 旧トークンをロックし、`pending` / `confirmed` / `completed` を1件読む。
+2. `completed`、または再接続の期限内なら、その行を返す。秘密の文字列は空。
+3. それ以外で旧トークンが使えないなら、エラーで戻る。退役しない。
+4. 使えるときだけ、24時間超過を退役し、新しい `pending` を作る。
 
-これは、通常の接続トークンの話。未完了・`superseded`・`expired` の置き換え先を、次の旧トークンにする操作は別で、コードは409にする。その拒否は仕様07に書いてある。
+2のうち、旧トークンがその後に期限切れや失効になっていても返すことは、仕様に無い判断。仕様07は、進行中の再送と完了済みの遅延再送を返す、と書く。完了は旧トークンを失効するので、失効済みを一律に拒否すると遅延再送が届かない。中断後に操作IDへ戻る再送も、新しいトークンを出さない。画面は未実装。`token_unavailable` のときは「作り直す」へ案内し、追加画面を同じ接続名を入れた状態で開く。
 
-仕様07は、期限切れの旧トークンを復活・延長しない、とは書く。期限切れや失効済みから、再接続を始めてよいかは書いていない。
+## 7. 未決
 
-## 7. 更新ルール
+[PR #29](https://github.com/kushima-takeshi/code-learning-companion/pull/29) のレビューの2点は決まった。使えない旧トークンからの新規開始は [上の節](#6-期限切れ失効済みでは新しい再接続を始めない)。接続一覧は、未完了の置き換え先を出さない。仕様は [07 の List](../specs/07-agent-connection.md)。
+
+## 8. 更新ルール
 
 この機能を説明するときは、先にこのノートを読み、新しい説明はここに足す。
