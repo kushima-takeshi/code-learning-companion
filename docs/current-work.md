@@ -38,7 +38,7 @@
 - `GET /connection-tokens` と `Service.List` は、`connection_reconnections.state` が `completed` でない `new_token_id` を返さない。`pending`・`confirmed`・`superseded`・`expired` と、24時間を過ぎても状態が `pending` または `confirmed` のままの置き換え先を含む。完了した新しいトークンは残し、使えるかは `expires_at` と `revoked_at`。旧トークンは途中でも残す。
 - 認証の拒否、失効、再接続の開始・確認・完了・やり直しは変えていない。期限内の未完了の置き換え先は、一覧に出なくても学習記録APIでは今までどおり使える。
 - 失敗するサービス統合テストと HTTP 一覧テストを先に確認し、その後に `List` の SQL で外した。`CONNECTIONTOKEN_TEST_DATABASE_URL` と `LEARNINGRECORD_TEST_DATABASE_URL` を指定した `go test ./... -count=1` と `go vet ./...` が成功。PR取り込みと MinIO のオプトイン統合テストは未設定・未実行。画面・ブラウザ・MCPは未確認。全体ブロック2の完了とは扱わない。
-- 仕様は [仕様07](specs/07-agent-connection.md)。説明は [学習ノート](learning/reconnect.md)。ブランチは `cursor/hide-incomplete-reconnect-tokens-36d5`。[PR #37](https://github.com/kushima-takeshi/code-learning-companion/pull/37)。
+- 仕様は [仕様07](specs/07-agent-connection.md)。説明は [接続一覧](learning/token-list.md)。ブランチは `cursor/hide-incomplete-reconnect-tokens-36d5`。[PR #37](https://github.com/kushima-takeshi/code-learning-companion/pull/37)。
 
 ## 次の一手
 
@@ -51,13 +51,13 @@
 
 ## 使えない旧トークンからの再接続開始（2026-11-06）
 
-期限ちょうど以降、または失効済みの旧トークンに対して新しい再接続を始める要求を、`Service.StartReconnect` が `ErrTokenUnavailable` で拒否する。HTTPは409 `token_unavailable`。新しいトークンも再接続の行も作らない。時刻は `s.now`。進行中（再接続の24時間以内）と完了済みが既にある開始再送は同じ操作を返す。24時間を過ぎた未完了で旧トークンも使えないときは、退役せず拒否する。この重なりは仕様07に明示がない。画面の「作り直す」は未実装。説明は [学習ノート](learning/reconnect.md) に足した。
+期限ちょうど以降、または失効済みの旧トークンに対して新しい再接続を始める要求を、`Service.StartReconnect` が `ErrTokenUnavailable` で拒否する。HTTPは409 `token_unavailable`。新しいトークンも再接続の行も作らない。時刻は `s.now`。進行中（再接続の24時間以内）と完了済みが既にある開始再送は同じ操作を返す。24時間を過ぎた未完了で旧トークンも使えないときは、退役せず拒否する。この重なりは仕様07に明示がない。画面の「作り直す」は未実装。説明は [再接続の開始](learning/reconnect-start.md)。
 
 確認: バックエンドで `CONNECTIONTOKEN_TEST_DATABASE_URL` と `LEARNINGRECORD_TEST_DATABASE_URL` を PostgreSQL 16 の `clc` データベースへ向け、`go test ./... -count=1` と `go vet ./...` が成功。Goは1.26.10。テスト用スキーマの残存は0。追加前に、拒否を期待するテストが開始成功（HTTPは201）で失敗することを確認した。Docker内では実行していない。PR取り込みとMinIOのオプトイン統合テストは未設定・未実行。ブラウザ・MCP・接続画面は未検証。
 
-## 再接続の読み方（2026-11-05）
+## 再接続の読み方（2026-11-06）
 
-実装の説明は [学習ノート](learning/reconnect.md) を先に読む。新しい説明はそこに足す。2026-11-06に、使えない旧トークンからの新規開始と、未完了の置き換え先を一覧から外す説明をノートへ足した。
+実装の説明は [学習ノートの一覧](learning/README.md) を先に読む。説明は当たる節へ織り込み、末尾へ足さない。2026-11-06に、1本だったノートを機能ごとに分けた。使えない旧トークンからの新規開始は [再接続の開始](learning/reconnect-start.md)、未完了の置き換え先を一覧から外す説明は [接続一覧](learning/token-list.md)。分けた前の本文は [分割前のノート](archive/learning-reconnect-before-split-2026-11-06.md)。
 
 ## 決まっている方針
 

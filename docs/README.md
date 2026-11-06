@@ -20,7 +20,7 @@ Learning Companionは、送信内容を確認した問題・回答・フィー�
 | [仕様05](specs/05-deep-dive.md) | AIツール内の深掘りと学習要点 |
 | [仕様06](specs/06-data-lifecycle.md) | 保持・削除・上限・公開条件 |
 | [仕様07](specs/07-agent-connection.md) | AIツールの接続認証・連携トークン |
-| [学習ノートと用語集](learning/glossary.md) | 機能の流れと用語。節と説明の型は [伴走ルール](../AGENTS.md) |
+| [学習ノート](learning/README.md) | 機能ごとの今の振る舞い。用語は [用語集](learning/glossary.md)。節の順は [伴走ルール](../AGENTS.md) |
 
 仕様は完成時の条件であって、実装済みの保証ではない。実装状況は現在の作業とコードで確認する。
 第二案の全提案値が確定したわけではない。未決事項は現在の作業へ集約し、詳細仕様の未決箇所を旧案で埋めない。
@@ -33,6 +33,7 @@ Learning Companionは、送信内容を確認した問題・回答・フィー�
 - [改訂前の文書一式](archive/2026-10-26-before-v2/README.md): 今回書き換えた要件・設計・仕様の原本。
 - [現在の作業の記録（2026-10）](archive/current-work-2026-10.md): `current-work.md` から移した2026-10の完了記録。
 - [現在の作業の記録（2026-11）](archive/current-work-2026-11.md): `current-work.md` から移した2026-11の完了記録。
+- [再接続の学習ノート（分割前）](archive/learning-reconnect-before-split-2026-11-06.md): 機能ごとに分ける前の `docs/learning/reconnect.md`。今の説明は [学習ノート](learning/README.md)。
 - [将来案](../future-ideas.md): 現在の必須要件ではない。
 
 ## 文書を更新するとき
