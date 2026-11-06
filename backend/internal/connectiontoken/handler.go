@@ -38,6 +38,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, requireAuth func(http.Handl
 	mux.Handle("POST /connection-tokens", protect(h.Issue))
 	mux.Handle("GET /connection-tokens", protect(h.List))
 	mux.Handle("POST /connection-tokens/{id}/revoke", protect(h.Revoke))
+	mux.Handle("POST /connection-tokens/{id}/rename", protect(h.Rename))
 	mux.Handle("POST /connection-tokens/{id}/reconnections", protect(h.StartReconnect))
 	mux.Handle("GET /connection-reconnections/{id}", protect(h.GetReconnect))
 	mux.Handle("POST /connection-reconnections/{id}/complete", protect(h.CompleteReconnect))
@@ -146,6 +147,61 @@ func (h *Handler) Revoke(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) Rename(w http.ResponseWriter, r *http.Request) {
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeManagementJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeManagementJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_token_id"})
+		return
+	}
+	contentType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || contentType != "application/json" {
+		writeManagementJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "unsupported_media_type"})
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxIssueBodyBytes))
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeManagementJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "request_too_large"})
+		} else {
+			writeManagementJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		}
+		return
+	}
+	var input *struct {
+		Name string `json:"name"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil || input == nil {
+		writeManagementJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		writeManagementJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	token, err := h.service.Rename(r.Context(), user.ID, id.String(), input.Name)
+	if err != nil {
+		if errors.Is(err, ErrInvalidName) {
+			writeManagementJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_name"})
+		} else if errors.Is(err, ErrTokenNotFound) {
+			writeManagementJSON(w, http.StatusNotFound, map[string]string{"error": "token_not_found"})
+		} else {
+			writeManagementJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+		}
+		return
+	}
+	writeManagementJSON(w, http.StatusOK, struct {
+		Token tokenResponse `json:"token"`
+	}{Token: publicToken(token)})
 }
 
 func writeManagementJSON(w http.ResponseWriter, status int, value any) {
