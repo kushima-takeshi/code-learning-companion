@@ -5,6 +5,16 @@ PRの説明は、下の見出しの順で短く日本語を書く。
 この案内コメントは、記入後に消す。
 -->
 
+## 学習ノート
+
+<!--
+機能のPRは下の2行を書く。<feature> はノートのファイル名、<branch> はPRのブランチ名に置き換える。
+文書だけのPR、機能以外のPRは「なし」と書く。
+-->
+
+- [docs/learning/<feature>.md](https://github.com/kushima-takeshi/code-learning-companion/blob/<branch>/docs/learning/<feature>.md)
+- 目的:
+
 ## 何を変えたか
 
 <!-- 変わった振る舞いを2〜4文で書く。ファイル名の羅列にしない。 -->

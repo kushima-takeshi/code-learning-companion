@@ -52,6 +52,8 @@ PR #29のレビューでは、直すべき指摘の2件とも仕様07（`docs/sp
 
 機能を実装するPRには、`docs/learning/<feature>.md` を入れるか、すでにあれば更新する。あとからそのコードを説明するときは、先にそのノートを読み、新しい説明はノートへ足す。形式の例は `docs/learning/reconnect.md`（[PR #33](https://github.com/kushima-takeshi/code-learning-companion/pull/33)。main に無いあいだは、そのPRのファイルを見る）。用語は [用語集](docs/learning/glossary.md) にまとめ、迷った用語はそこへ1項目足してリンクする。同じ説明を繰り返さない。
 
+機能のPRは、PR本文の先頭に学習ノートへのリンクと、目的を1行で書く。処理の流れや詳細は本文へ貼らない。本文は短くし、詳細はノートに残す。
+
 ### 学習ノート
 
 節は次の順。
