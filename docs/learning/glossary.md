@@ -232,3 +232,28 @@ token, err := scanToken(row)
 ```
 
 場所: `backend/internal/connectiontoken/service.go` の `scanToken`。`Issue` は `QueryRowContext` の行を渡し、`backend/internal/connectiontoken/manage.go` の `List` は `rows` を渡す。別の例は `backend/internal/primport/service.go` の `prFetcher`。`backend/internal/primport/prepare.go` の `prepare` が `s.github.FetchPR` を呼ぶ。
+
+## 接続名
+
+接続を見分ける表示ラベル。認証や、どの接続を差し替えるかの判定には使わない。前後の空白を除き、空なら拒否する。同名は何件でも置ける。
+
+```go
+// manage.go の Rename。空なら更新しない
+name = strings.TrimSpace(name)
+if name == "" {
+    return Token{}, ErrInvalidName
+}
+```
+
+場所: `backend/internal/connectiontoken/manage.go` の `Rename`。発行時の同じ空白除去は `backend/internal/connectiontoken/service.go` の `Issue` で、空のときは `IssuedToken{}` を返す。画面の初期値「AIエージェント」は `frontend/src/connection/ConnectionSection.tsx` の `ConnectionSection`。説明は [接続画面](connection-screen.md)。
+
+## 原本
+
+発行に成功した応答だけが持つ秘密の文字列。DBに保存するのは SHA-256 のハッシュだけ。画面は追加した直後の1件だけ出し、一覧では出さない。
+
+```go
+secret := "clc_" + hex.EncodeToString(randomBytes)
+hash := sha256.Sum256([]byte(secret))
+```
+
+場所: `backend/internal/connectiontoken/service.go` の `issueToken`。画面に出すのは `frontend/src/connection/ConnectionSection.tsx` の `ConnectionSection`。説明は [接続画面](connection-screen.md)。

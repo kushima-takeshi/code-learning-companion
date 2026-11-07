@@ -184,6 +184,7 @@ func TestLearningListHTTPIntegration(t *testing.T) {
 	for _, endpoint := range []struct{ method, path string }{
 		{"GET", "/connection-tokens"}, {"POST", "/connection-tokens"},
 		{"POST", "/connection-tokens/" + ownerToken.Token.ID + "/revoke"},
+		{"POST", "/connection-tokens/" + ownerToken.Token.ID + "/rename"},
 	} {
 		checkListError(t, listRequest(h, endpoint.method, endpoint.path, ownerToken.Secret, nil), 401, "unauthorized")
 	}

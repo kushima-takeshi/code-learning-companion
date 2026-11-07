@@ -30,6 +30,7 @@ func TestManagementAuthenticationIntegration(t *testing.T) {
 		{"POST", "/connection-tokens", `{"name":"Codex"}`},
 		{"GET", "/connection-tokens", ""},
 		{"POST", "/connection-tokens/" + issued.Token.ID + "/revoke", ""},
+		{"POST", "/connection-tokens/" + issued.Token.ID + "/rename", `{"name":"cursor"}`},
 	} {
 		for _, credentials := range []struct{ name, bearer, cookie string }{
 			{name: "未ログイン"},
@@ -57,6 +58,10 @@ func TestManagementAuthenticationIntegration(t *testing.T) {
 	if err := db.QueryRow(`SELECT count(*) FROM connection_tokens WHERE revoked_at IS NULL`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("拒否で発行・失効しない: %d %v", count, err)
 	}
+	var name string
+	if err := db.QueryRow(`SELECT name FROM connection_tokens WHERE id=$1`, issued.Token.ID).Scan(&name); err != nil || name != "Codex" {
+		t.Fatalf("拒否で名前を変えない: %s %v", name, err)
+	}
 }
 
 func TestManagementCrossOriginIntegration(t *testing.T) {
@@ -68,7 +73,7 @@ func TestManagementCrossOriginIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/connection-tokens", "/connection-tokens/" + issued.Token.ID + "/revoke"} {
+	for _, path := range []string{"/connection-tokens", "/connection-tokens/" + issued.Token.ID + "/revoke", "/connection-tokens/" + issued.Token.ID + "/rename"} {
 		for _, tc := range []struct{ name, origin, fetchSite string }{
 			{"別サイト", "https://evil.example", "cross-site"},
 			{"Originのみ", "https://evil.example", ""},
@@ -76,7 +81,7 @@ func TestManagementCrossOriginIntegration(t *testing.T) {
 			{"同一siteの別origin", "https://evil.example", "same-site"},
 		} {
 			t.Run(path+tc.name, func(t *testing.T) {
-				req := httptest.NewRequest("POST", path, strings.NewReader(`{"name":"Codex"}`))
+				req := httptest.NewRequest("POST", path, strings.NewReader(`{"name":"csrf"}`))
 				req.Header.Set("Origin", tc.origin)
 				req.Header.Set("Sec-Fetch-Site", tc.fetchSite)
 				req.Header.Set("Content-Type", "application/json")
@@ -101,6 +106,10 @@ func TestManagementCrossOriginIntegration(t *testing.T) {
 	if _, err := New(db).Authenticate(context.Background(), issued.Secret); err != nil {
 		t.Fatal("拒否した要求で失効しない")
 	}
+	var name string
+	if err := db.QueryRow(`SELECT name FROM connection_tokens WHERE id=$1`, issued.Token.ID).Scan(&name); err != nil || name != "Codex" {
+		t.Fatalf("拒否した要求で名前を変えない: %s %v", name, err)
+	}
 }
 
 func TestManagementDBFailureIntegration(t *testing.T) {
@@ -119,6 +128,7 @@ func TestManagementDBFailureIntegration(t *testing.T) {
 		{"POST", "/connection-tokens", `{"name":"Codex"}`},
 		{"GET", "/connection-tokens", ""},
 		{"POST", "/connection-tokens/" + issued.Token.ID + "/revoke", ""},
+		{"POST", "/connection-tokens/" + issued.Token.ID + "/rename", `{"name":"cursor"}`},
 	} {
 		res := managementRequest(h, endpoint.method, endpoint.path, endpoint.body, cookie)
 		checkHTTPError(t, res, 500, "internal_error")

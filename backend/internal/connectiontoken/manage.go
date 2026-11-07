@@ -2,8 +2,10 @@ package connectiontoken
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -57,4 +59,24 @@ func (s *Service) Revoke(ctx context.Context, userID, tokenID string) error {
 		return ErrTokenNotFound
 	}
 	return nil
+}
+
+// Rename changes the owner's display name and leaves the secret, hash, and dates alone.
+func (s *Service) Rename(ctx context.Context, userID, tokenID, name string) (Token, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return Token{}, ErrInvalidName
+	}
+	token, err := scanToken(s.db.QueryRowContext(ctx, `
+  UPDATE connection_tokens SET name=$3
+  WHERE id=$1 AND user_id=$2
+  RETURNING id, user_id, name, created_at, expires_at, revoked_at
+ `, tokenID, userID, name))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Token{}, ErrTokenNotFound
+	}
+	if err != nil {
+		return Token{}, fmt.Errorf("rename connection token: %w", err)
+	}
+	return token, nil
 }

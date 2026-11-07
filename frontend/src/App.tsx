@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { apiBaseURL, fetchHealth } from "./api/health"
 import { fetchMe, logout } from "./api/auth"
 import type { CreateSnapshotResponse } from "./api/prSnapshots"
+import { ConnectionSection } from "./connection/ConnectionSection"
 
 
 function App() {
@@ -330,6 +331,7 @@ function App() {
               </ul>
             )}
           </section>
+          <ConnectionSection />
         </div>
       ) : (
         <div>
