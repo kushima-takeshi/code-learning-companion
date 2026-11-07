@@ -1,6 +1,6 @@
 # 再接続の状態取得
 
-仕様は [07 の再接続API](../specs/07-agent-connection.md) の状態取得。画面は未実装。開始が再送で同じ行を返すときも、この読み方で表示を揃える。用語は [再接続リクエスト](glossary.md#再接続リクエスト)。保存する遷移の全体は [再接続の開始](reconnect-start.md)。
+仕様は [07 の再接続API](../specs/07-agent-connection.md) の状態取得。画面は [再接続の画面](reconnect-screen.md)。開始が再送で同じ行を返すときも、この読み方で表示を揃える。用語は [再接続リクエスト](glossary.md#再接続リクエスト)。保存する遷移の全体は [再接続の開始](reconnect-start.md)。
 
 ## 何のためか
 
@@ -89,4 +89,4 @@ got, err := scanReconnect(row)
 
 ## 未決
 
-なし。表示だけの `expired` と `unavailable` は、上の CASE で決まっている。掃除ジョブは無い。画面は未実装。
+なし。表示だけの `expired` と `unavailable` は、上の CASE で決まっている。掃除ジョブは無い。画面は [再接続の画面](reconnect-screen.md)。

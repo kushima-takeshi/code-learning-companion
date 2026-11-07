@@ -1,6 +1,6 @@
 # 接続一覧
 
-仕様は [07 の List](../specs/07-agent-connection.md)。画面は未実装。本人の接続トークンを新しい順で返す。再接続が完了していない置き換え先は、行ごと出さない。再接続の状態は変えない。開始は [再接続の開始](reconnect-start.md)。期限内の未完了が学習記録APIを通る道は [再接続の確認](reconnect-confirm.md)。
+仕様は [07 の List](../specs/07-agent-connection.md)。画面は [接続画面](connection-screen.md)。本人の接続トークンを新しい順で返す。再接続が完了していない置き換え先は、行ごと出さない。再接続の状態は変えない。開始は [再接続の開始](reconnect-start.md)。期限内の未完了が学習記録APIを通る道は [再接続の確認](reconnect-confirm.md)。
 
 ## 何のためか
 
@@ -80,4 +80,4 @@ for rows.Next() {
 
 ## 未決
 
-なし。PR #29 のレビューで未決だった一覧の見せ方は、`state` が `completed` でない `new_token_id` を出さないことで決まっている。仕様07の `List` に記録済み。画面は未実装。
+なし。PR #29 のレビューで未決だった一覧の見せ方は、`state` が `completed` でない `new_token_id` を出さないことで決まっている。仕様07の `List` に記録済み。画面は [接続画面](connection-screen.md)。
