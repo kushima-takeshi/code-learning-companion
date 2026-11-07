@@ -1,6 +1,6 @@
 # 再接続のやり直し
 
-仕様は [07 の再接続API](../specs/07-agent-connection.md) のやり直し。画面は未実装。期限内の未完了を捨て、新しい置き換え先と新しい `pending` を同時に作る。用語は [退役](glossary.md#退役)、[置き換え先](glossary.md#置き換え先)。期限後に使える旧トークンへ始める道は [再接続の開始](reconnect-start.md)。表示が `unavailable` でも、期限内ならここへ来られる。
+仕様は [07 の再接続API](../specs/07-agent-connection.md) のやり直し。画面は [再接続の画面](reconnect-screen.md)。期限内の未完了を捨て、新しい置き換え先と新しい `pending` を同時に作る。用語は [退役](glossary.md#退役)、[置き換え先](glossary.md#置き換え先)。期限後に使える旧トークンへ始める道は [再接続の開始](reconnect-start.md)。表示が `unavailable` でも、期限内ならここへ来られる。
 
 ## 何のためか
 
