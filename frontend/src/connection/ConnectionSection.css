@@ -1,0 +1,267 @@
+.connection-section {
+  color-scheme: light;
+  text-align: left;
+  color: #1f2933;
+  background: #f4f7fb;
+  border: 1px solid #d5dde6;
+  border-radius: 12px;
+  padding: 16px 20px 20px;
+  margin-top: 24px;
+}
+
+.connection-section h2,
+.connection-section h3,
+.connection-section h4 {
+  color: #1f2933;
+}
+
+.connection-section h2 {
+  margin-bottom: 8px;
+}
+
+.connection-section p + p,
+.connection-section h4 + p,
+.connection-section .reconnect-secret + p {
+  margin-top: 8px;
+}
+
+.connection-section form {
+  margin-top: 16px;
+}
+
+.connection-section label {
+  display: block;
+  margin-bottom: 4px;
+  color: #1f2933;
+}
+
+.connection-section input {
+  color: #1f2933;
+  background: #ffffff;
+  border: 1px solid #8aa0b8;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.connection-section button {
+  color: #1f2933;
+  background: #f7f9fb;
+  border: 1px solid #8aa0b8;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.connection-section button.primary {
+  color: #f4f7fb;
+  background: #1e4d7b;
+  border-color: #1e4d7b;
+}
+
+.connection-section button.reconnect-link {
+  color: #1e4d7b;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.connection-section button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.connection-section button:focus-visible,
+.connection-section input:focus-visible {
+  outline: 2px solid #1e4d7b;
+  outline-offset: 2px;
+}
+
+.connection-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.connection-list > li {
+  background: #f7f9fb;
+  color: #1f2933;
+  border: 1px solid #d5dde6;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.connection-list > li:has(.reconnect-panel) {
+  border-color: #1e4d7b;
+}
+
+.connection-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.connection-name {
+  font-weight: 600;
+  color: #1f2933;
+}
+
+.connection-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.85rem;
+  background: #e5f4ea;
+  color: #1b6b3a;
+}
+
+.connection-badge.is-unusable {
+  background: #e6ebf0;
+  color: #3d4a57;
+}
+
+.connection-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reconnect-panel {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #d5dde6;
+  color: #1f2933;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.reconnect-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.reconnect-panel h3,
+.reconnect-panel h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.reconnect-steps {
+  list-style: none;
+  counter-reset: reconnect-step;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.reconnect-steps > li {
+  counter-increment: reconnect-step;
+  position: relative;
+  padding-left: 2.4rem;
+  margin-top: 14px;
+}
+
+.reconnect-steps > li::before {
+  content: counter(reconnect-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: #1e4d7b;
+  color: #f4f7fb;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+}
+
+.reconnect-secret {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.reconnect-secret code {
+  flex: 1 1 16rem;
+  color: #1f2933;
+  background: #e7eef5;
+  word-break: break-all;
+}
+
+.reconnect-state {
+  display: inline-block;
+  margin-top: 8px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: #e6ebf0;
+  color: #1f2933;
+}
+
+.reconnect-state.is-pending {
+  background: #f4e8c4;
+  color: #6b5420;
+}
+
+.reconnect-state.is-confirmed {
+  background: #e5f4ea;
+  color: #1b6b3a;
+}
+
+.reconnect-ready {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #8fbfa3;
+  border-radius: 8px;
+  background: #e5f4ea;
+  color: #1f2933;
+}
+
+.reconnect-ready-title {
+  font-weight: 600;
+  color: #1b6b3a;
+}
+
+.reconnect-terminal {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.reconnect-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #d5dde6;
+  color: #3d4a57;
+}
+
+.connection-section [role="alert"] {
+  color: #1f2933;
+  background: #e7eef5;
+  border: 1px solid #8aa0b8;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+@media (max-width: 640px) {
+  .connection-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+}

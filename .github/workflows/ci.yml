@@ -139,9 +139,14 @@ jobs:
         run: npm ci
 
       # package.json の lint（oxlint）を実行する。
-      # ビルドの前に、明らかな書き方の問題を見つける。テスト用スクリプトはまだない。
+      # ビルドの前に、明らかな書き方の問題を見つける。
       - name: lintを実行する
         run: npm run lint
+
+      # package.json の test（vitest run）を実行する。
+      # 接続画面は、ここでモックしたAPIに対して操作を確認する。
+      - name: テストを実行する
+        run: npm test
 
       # TypeScript の型検査と、本番用のビルドを実行する。
       # 開発サーバでは動いても、型やバンドルの段階で落ちることがある。
