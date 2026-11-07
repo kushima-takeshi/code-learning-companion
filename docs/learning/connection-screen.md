@@ -33,7 +33,7 @@ stateDiagram-v2
 | 失効を確認する | その原本を出しているなら消す | 失効する |
 | 確認を取り消す | そのまま | 変えない |
 
-未完了再接続の24時間だけで認証できない行も、期限前で失効が無ければ「有効」と出る。一覧はその状態を返さない。
+未完了の置き換え先は、一覧APIが返さない。24時間以内も含む。画面はその行を受け取らない。説明は [接続一覧](token-list.md)。
 
 ## 3. 呼び出しの流れ
 
@@ -55,7 +55,7 @@ stateDiagram-v2
 | 1 | `ConnectionSection` の初回 effect と `reload` | なし |
 | 2 | [connectionTokens.ts listConnectionTokens](../../frontend/src/api/connectionTokens.ts) | なし。`GET /connection-tokens` |
 | 3 | [handler.go Handler.List](../../backend/internal/connectiontoken/handler.go) | なし |
-| 4 | [manage.go Service.List](../../backend/internal/connectiontoken/manage.go) | 本人の行を新しい順で SELECT |
+| 4 | [manage.go Service.List](../../backend/internal/connectiontoken/manage.go) | 本人の行を新しい順で SELECT。`completed` でない置き換え先は除く。詳細は [接続一覧](token-list.md) |
 | 5 | [status.ts connectionStatus](../../frontend/src/connection/status.ts) | なし。`revoked_at` と `expires_at` で「有効」か「使えない」 |
 
 ### 名前変更
@@ -91,13 +91,12 @@ stateDiagram-v2
 
 原本はブラウザのメモリだけに置く。localStorage には書かない。次の追加で、前の表示を置き換える。前のトークンは失効しない。
 名前変更を POST にしたのは、既存のCORSが GET・POST・OPTIONS だけだから。PATCHにすると許可を広げる必要があった。
-状態を一覧の2項目だけで決めたのは、一覧APIを増やさないため。24時間だけの不使用は、この画面では「有効」のまま。未決。
+状態を一覧の2項目だけで決めたのは、画面で再接続状態を見ないため。未完了の置き換え先は、一覧APIが先に除く。
 作り直すで発行しないのは、使えない行を見ただけで新しい原本を出したくないため。
 
 ## 6. 未決
 
-- 未完了再接続の24時間だけで使えない新トークンを「使えない」と出すか。一覧にその状態は無い。
-- 再接続の開始・再開・完了・やり直しの画面。409 `token_unavailable` から追加欄へ進む動線も未接続。
+- 再接続の開始・再開・完了・やり直しの画面。409 `token_unavailable` から追加欄へ進む動線も未接続。未完了の置き換え先を一覧から外すことは決定済みで、説明は [接続一覧](token-list.md)。
 - 設定文の雛形。この画面には出さない。
 - 接続名の文字数、発行件数、頻度の上限。
 - ブラウザの時計とサーバーの時計のずれ。画面は補正しない。

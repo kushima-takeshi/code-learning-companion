@@ -12,10 +12,16 @@ import (
 var ErrTokenNotFound = errors.New("connection token not found")
 
 // List returns only the owner's metadata, including expired and revoked connections.
+// A replacement stays out while its reconnection state is not completed, even within 24h.
 func (s *Service) List(ctx context.Context, userID string) ([]Token, error) {
 	rows, err := s.db.QueryContext(ctx, `
   SELECT id, user_id, name, created_at, expires_at, revoked_at
-  FROM connection_tokens WHERE user_id=$1
+  FROM connection_tokens
+  WHERE user_id=$1
+  AND NOT EXISTS (
+    SELECT 1 FROM connection_reconnections r
+    WHERE r.new_token_id=connection_tokens.id AND r.state <> 'completed'
+  )
   ORDER BY created_at DESC, id DESC
  `, userID)
 	if err != nil {
