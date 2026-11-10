@@ -89,7 +89,7 @@ now, err = activeReplacement(ctx, tx, r, s.now)
 | 時刻は関数のまま渡す | 渡す前に `s.now()` すると、待っているあいだの時刻が進まない。読み方は [用語集](glossary.md#関数値f-と-f-の違い) |
 | 認証と接続一覧で条件が違う | 認証は、期限内の `pending` と `confirmed` を通す。接続一覧は `state <> 'completed'` を全部外す。確認の通り道を、接続の一覧に混ぜない |
 
-定期整理は未実装。24時間ちょうどからの拒否は、この認証と確認が各要求で行う。
+定期整理は未実装。追跡は [Issue #46](https://github.com/kushima-takeshi/code-learning-companion/issues/46)。目的: 使用不能後30日を過ぎたトークン情報を、1日1回削除する。24時間ちょうどからの拒否は、この認証と確認が各要求で行う。
 
 ## 未決
 
