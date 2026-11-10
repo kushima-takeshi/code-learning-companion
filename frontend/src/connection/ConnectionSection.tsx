@@ -1,21 +1,51 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import {
+  completeReconnection,
   createConnectionToken,
+  getReconnection,
   listConnectionTokens,
   renameConnectionToken,
+  restartReconnection,
   revokeConnectionToken,
+  startReconnection,
   type ConnectionToken,
   type CreatedConnectionToken,
+  type Reconnection,
+  type ReconnectionResult,
 } from "../api/connectionTokens"
 import { connectionStatus } from "./status"
+import {
+  ReconnectPanel,
+  type ReconnectBusy,
+} from "./ReconnectPanel"
+import { canRestartReconnect, visibleSecret } from "./reconnect"
+import "./ConnectionSection.css"
 
 const defaultConnectionName = "AIエージェント"
+
+const reconnectKnownErrors: Record<string, string> = {
+  token_not_found: "この接続は見つかりませんでした",
+  reconnection_not_found: "この再接続は見つかりませんでした",
+  reconnection_conflict: "この状態では操作できません",
+  unauthorized: "ログインが必要です",
+  invalid_token_id: "接続の指定が正しくありません",
+  invalid_reconnection_id: "再接続の指定が正しくありません",
+  invalid_reconnection_request: "再接続の要求が正しくありません",
+  request_too_large: "要求が大きすぎます",
+}
+
+const tokenUnavailableMessage =
+  "この接続は期限切れか失効済みのため、再接続を始められません。追加欄に同じ名前を入れました。追加するまで新しいトークンは作りません。"
 
 export type ConnectionApi = {
   list: () => Promise<ConnectionToken[]>
   create: (name: string) => Promise<CreatedConnectionToken>
   rename: (id: string, name: string) => Promise<ConnectionToken>
   revoke: (id: string) => Promise<void>
+  startReconnect: (tokenId: string) => Promise<ReconnectionResult>
+  getReconnect: (id: string) => Promise<Reconnection>
+  completeReconnect: (id: string) => Promise<Reconnection>
+  restartReconnect: (id: string) => Promise<ReconnectionResult>
 }
 
 const defaultApi: ConnectionApi = {
@@ -23,6 +53,16 @@ const defaultApi: ConnectionApi = {
   create: createConnectionToken,
   rename: renameConnectionToken,
   revoke: revokeConnectionToken,
+  startReconnect: startReconnection,
+  getReconnect: getReconnection,
+  completeReconnect: completeReconnection,
+  restartReconnect: restartReconnection,
+}
+
+type ReconnectSession = {
+  tokenId: string
+  reconnection: Reconnection
+  secret: string | null
 }
 
 function defaultNow(): Date {
@@ -49,15 +89,29 @@ function errorText(
   return known[code] ?? fallback
 }
 
+function sessionFrom(
+  tokenId: string,
+  reconnection: Reconnection,
+  secret: string | null,
+): ReconnectSession {
+  return {
+    tokenId,
+    reconnection,
+    secret: visibleSecret(reconnection.state, secret),
+  }
+}
+
 export function ConnectionSection({
   api = defaultApi,
   now = defaultNow,
   confirmRevoke = defaultConfirm,
+  confirmReconnect = defaultConfirm,
   copyText = defaultCopy,
 }: {
   api?: ConnectionApi
   now?: () => Date
   confirmRevoke?: (message: string) => boolean
+  confirmReconnect?: (message: string) => boolean
   copyText?: (value: string) => Promise<void>
 }) {
   const [name, setName] = useState(defaultConnectionName)
@@ -73,6 +127,17 @@ export function ConnectionSection({
   const [draftName, setDraftName] = useState("")
   const [renaming, setRenaming] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [reconnect, setReconnect] = useState<ReconnectSession | null>(null)
+  const [reconnectError, setReconnectError] = useState<string | null>(null)
+  const [reconnectErrorFor, setReconnectErrorFor] = useState<string | null>(null)
+  const [reconnectBusy, setReconnectBusy] = useState<ReconnectBusy>(null)
+  const [startingTokenId, setStartingTokenId] = useState<string | null>(null)
+  const [reconnectCopyMessage, setReconnectCopyMessage] = useState<string | null>(
+    null,
+  )
+  const [reconnectCopyError, setReconnectCopyError] = useState<string | null>(
+    null,
+  )
   const nameInputRef = useRef<HTMLInputElement>(null)
   const ignoreRef = useRef(false)
 
@@ -122,6 +187,22 @@ export function ConnectionSection({
     setSecretTokenId(null)
     setCopyMessage(null)
     setCopyError(null)
+  }
+
+  function closeReconnect() {
+    setReconnect(null)
+    setReconnectCopyMessage(null)
+    setReconnectCopyError(null)
+  }
+
+  function clearReconnectError() {
+    setReconnectError(null)
+    setReconnectErrorFor(null)
+  }
+
+  function showReconnectError(message: string, tokenId: string | null) {
+    setReconnectError(message)
+    setReconnectErrorFor(tokenId)
   }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -243,10 +324,260 @@ export function ConnectionSection({
     }
   }
 
+  async function beginReconnect(token: ConnectionToken) {
+    clearReconnectError()
+    setReconnectBusy("start")
+    setStartingTokenId(token.id)
+    try {
+      const result = await api.startReconnect(token.id)
+      if (ignoreRef.current) {
+        return
+      }
+      const next = sessionFrom(token.id, result.reconnection, result.secret)
+      setReconnect(next)
+      setReconnectCopyMessage(null)
+      setReconnectCopyError(null)
+      if (result.reconnection.state === "completed") {
+        await reload()
+      }
+    } catch (err: unknown) {
+      if (ignoreRef.current) {
+        return
+      }
+      const code = err instanceof Error ? err.message : ""
+      if (code === "token_unavailable") {
+        closeReconnect()
+        setName(token.name)
+        showReconnectError(tokenUnavailableMessage, null)
+        nameInputRef.current?.focus()
+        await reload()
+        return
+      }
+      showReconnectError(
+        errorText(err, "再接続を始められませんでした", reconnectKnownErrors),
+        token.id,
+      )
+    } finally {
+      if (!ignoreRef.current) {
+        setReconnectBusy(null)
+        setStartingTokenId(null)
+      }
+    }
+  }
+
+  function onReconnectClick(token: ConnectionToken) {
+    if (reconnectBusy !== null) {
+      return
+    }
+    if (reconnect?.tokenId === token.id) {
+      clearReconnectError()
+      closeReconnect()
+      return
+    }
+    void beginReconnect(token)
+  }
+
+  async function refreshReconnect(id: string) {
+    try {
+      const next = await api.getReconnect(id)
+      if (ignoreRef.current) {
+        return
+      }
+      setReconnect((current) => {
+        if (current === null || current.reconnection.id !== id) {
+          return current
+        }
+        return sessionFrom(current.tokenId, next, current.secret)
+      })
+    } catch {
+      // 読み直しに失敗しても、直前のエラー表示は残す。
+    }
+  }
+
+  async function handleCheck() {
+    if (reconnect === null || reconnectBusy !== null) {
+      return
+    }
+    const id = reconnect.reconnection.id
+    const tokenId = reconnect.tokenId
+    setReconnectBusy("status")
+    clearReconnectError()
+    try {
+      const next = await api.getReconnect(id)
+      if (ignoreRef.current) {
+        return
+      }
+      setReconnect((current) => {
+        if (current === null || current.reconnection.id !== id) {
+          return current
+        }
+        return sessionFrom(current.tokenId, next, current.secret)
+      })
+    } catch (err: unknown) {
+      if (ignoreRef.current) {
+        return
+      }
+      const code = err instanceof Error ? err.message : ""
+      if (code === "reconnection_not_found") {
+        closeReconnect()
+        showReconnectError("この再接続は見つかりませんでした", null)
+        await reload()
+        return
+      }
+      showReconnectError(
+        errorText(err, "状態を確認できませんでした", reconnectKnownErrors),
+        tokenId,
+      )
+    } finally {
+      if (!ignoreRef.current) {
+        setReconnectBusy(null)
+      }
+    }
+  }
+
+  async function handleComplete() {
+    if (
+      reconnect === null ||
+      reconnect.reconnection.state !== "confirmed" ||
+      reconnectBusy !== null
+    ) {
+      return
+    }
+    const id = reconnect.reconnection.id
+    const tokenId = reconnect.tokenId
+    setReconnectBusy("complete")
+    clearReconnectError()
+    try {
+      const next = await api.completeReconnect(id)
+      if (ignoreRef.current) {
+        return
+      }
+      setReconnect((current) => {
+        if (current === null || current.reconnection.id !== id) {
+          return current
+        }
+        return sessionFrom(current.tokenId, next, current.secret)
+      })
+      await reload()
+    } catch (err: unknown) {
+      if (ignoreRef.current) {
+        return
+      }
+      const code = err instanceof Error ? err.message : ""
+      if (code === "reconnection_conflict") {
+        showReconnectError("この状態では置き換えを完了できません", tokenId)
+        await refreshReconnect(id)
+        return
+      }
+      if (code === "reconnection_not_found") {
+        closeReconnect()
+        showReconnectError("この再接続は見つかりませんでした", null)
+        await reload()
+        return
+      }
+      showReconnectError(
+        errorText(err, "置き換えを完了できませんでした", reconnectKnownErrors),
+        tokenId,
+      )
+    } finally {
+      if (!ignoreRef.current) {
+        setReconnectBusy(null)
+      }
+    }
+  }
+
+  async function handleRestart() {
+    if (
+      reconnect === null ||
+      !canRestartReconnect(reconnect.reconnection.state) ||
+      reconnectBusy !== null
+    ) {
+      return
+    }
+    const accepted = confirmReconnect(
+      "やり直しますか？未完了の新しいトークンを失効し、新しく発行します。",
+    )
+    if (!accepted) {
+      return
+    }
+    const id = reconnect.reconnection.id
+    const tokenId = reconnect.tokenId
+    setReconnectBusy("restart")
+    clearReconnectError()
+    try {
+      const result = await api.restartReconnect(id)
+      if (ignoreRef.current) {
+        return
+      }
+      setReconnect(sessionFrom(tokenId, result.reconnection, result.secret))
+      setReconnectCopyMessage(null)
+      setReconnectCopyError(null)
+    } catch (err: unknown) {
+      if (ignoreRef.current) {
+        return
+      }
+      const code = err instanceof Error ? err.message : ""
+      if (code === "reconnection_conflict") {
+        showReconnectError("この状態ではやり直せません", tokenId)
+        await refreshReconnect(id)
+        return
+      }
+      if (code === "reconnection_not_found") {
+        closeReconnect()
+        showReconnectError("この再接続は見つかりませんでした", null)
+        await reload()
+        return
+      }
+      showReconnectError(
+        errorText(err, "やり直せませんでした", reconnectKnownErrors),
+        tokenId,
+      )
+    } finally {
+      if (!ignoreRef.current) {
+        setReconnectBusy(null)
+      }
+    }
+  }
+
+  async function handleReconnectCopy() {
+    const value = reconnect === null ? null : visibleSecret(
+      reconnect.reconnection.state,
+      reconnect.secret,
+    )
+    if (value === null) {
+      return
+    }
+    try {
+      await copyText(value)
+      setReconnectCopyError(null)
+      setReconnectCopyMessage("コピーしました")
+    } catch {
+      setReconnectCopyMessage(null)
+      setReconnectCopyError(
+        "コピーできませんでした。表示されている文字列を選んでコピーしてください",
+      )
+    }
+  }
+
+  function guideTarget(): ConnectionToken | null {
+    if (reconnect === null) {
+      return null
+    }
+    return tokens.find((token) => token.id === reconnect.tokenId) ?? null
+  }
+
+  const restartTarget = guideTarget()
+  const errorInPanel =
+    reconnect !== null &&
+    reconnectError !== null &&
+    reconnectErrorFor === reconnect.tokenId
+
   return (
-    <section>
+    <section className="connection-section">
       <h2>AIツールの接続</h2>
-      <p>AIツールで学習記録を保存するときに使う接続です。トークンの文字列は追加したときだけ表示します。</p>
+      <p>
+        AIツールで学習記録を保存するときに使う接続です。トークンの文字列は、追加した直後と、再接続で新しく発行した直後だけ表示します。
+      </p>
 
       <form onSubmit={handleCreate}>
         <div>
@@ -280,69 +611,130 @@ export function ConnectionSection({
       )}
 
       {listError && <p role="alert">{listError}</p>}
+      {reconnectError && !errorInPanel && (
+        <p role="alert">{reconnectError}</p>
+      )}
 
       {loading && tokens.length === 0 ? (
         <p>接続を読み込んでいます</p>
       ) : tokens.length === 0 && !listError ? (
         <p>接続はまだありません</p>
       ) : (
-        <ul>
+        <ul className="connection-list">
           {tokens.map((token) => {
             const status = connectionStatus(token, now())
             const editing = editingId === token.id
+            const open = reconnect?.tokenId === token.id
             return (
               <li key={token.id}>
-                {editing ? (
-                  <input
-                    aria-label="新しい接続名"
-                    value={draftName}
-                    onChange={(event) => setDraftName(event.target.value)}
-                  />
-                ) : (
-                  <span>{token.name}</span>
-                )}
-                <span>{status}</span>
-                {editing && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={saveRename}
-                      disabled={renaming}
-                    >
-                      保存する
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingId(null)
-                        setActionError(null)
-                      }}
-                    >
-                      キャンセル
-                    </button>
-                  </>
-                )}
-                {status === "有効" ? (
-                  <>
-                    {!editing && (
-                      <button type="button" onClick={() => beginRename(token)}>
-                        名前を変える
+                <div className="connection-row-main">
+                  {editing ? (
+                    <input
+                      aria-label="新しい接続名"
+                      value={draftName}
+                      onChange={(event) => setDraftName(event.target.value)}
+                    />
+                  ) : (
+                    <span className="connection-name">{token.name}</span>
+                  )}
+                  <span
+                    className={
+                      status === "有効"
+                        ? "connection-badge"
+                        : "connection-badge is-unusable"
+                    }
+                  >
+                    {status}
+                  </span>
+                  <div className="connection-actions">
+                    {editing && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={saveRename}
+                          disabled={renaming}
+                        >
+                          保存する
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(null)
+                            setActionError(null)
+                          }}
+                        >
+                          キャンセル
+                        </button>
+                      </>
+                    )}
+                    {status === "有効" ? (
+                      <>
+                        {!editing && (
+                          <button type="button" onClick={() => beginRename(token)}>
+                            名前を変える
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className={open ? "primary" : undefined}
+                          aria-expanded={open}
+                          aria-controls={open ? "reconnect-panel" : undefined}
+                          disabled={reconnectBusy !== null}
+                          onClick={() => onReconnectClick(token)}
+                        >
+                          {reconnectBusy === "start" && startingTokenId === token.id
+                            ? "始めています"
+                            : open
+                              ? "再接続中"
+                              : "再接続"}
+                        </button>
+                        <button type="button" onClick={() => handleRevoke(token.id)}>
+                          失効
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setName(token.name)
+                          nameInputRef.current?.focus()
+                        }}
+                      >
+                        作り直す
                       </button>
                     )}
-                    <button type="button" onClick={() => handleRevoke(token.id)}>
-                      失効
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setName(token.name)
-                      nameInputRef.current?.focus()
+                  </div>
+                </div>
+                {open && reconnect !== null && (
+                  <ReconnectPanel
+                    reconnection={reconnect.reconnection}
+                    secret={reconnect.secret}
+                    busy={reconnectBusy}
+                    error={errorInPanel ? reconnectError : null}
+                    copyMessage={reconnectCopyMessage}
+                    copyError={reconnectCopyError}
+                    onCheck={() => {
+                      void handleCheck()
                     }}
-                  >
-                    作り直す
-                  </button>
+                    onComplete={() => {
+                      void handleComplete()
+                    }}
+                    onRestart={() => {
+                      void handleRestart()
+                    }}
+                    onStartAgain={() => {
+                      if (restartTarget !== null) {
+                        void beginReconnect(restartTarget)
+                      }
+                    }}
+                    onClose={() => {
+                      clearReconnectError()
+                      closeReconnect()
+                    }}
+                    onCopy={() => {
+                      void handleReconnectCopy()
+                    }}
+                  />
                 )}
               </li>
             )
