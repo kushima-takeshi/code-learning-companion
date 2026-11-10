@@ -1,6 +1,6 @@
 # 再接続の確認
 
-仕様は [07 の再接続API](../specs/07-agent-connection.md) の、新トークンによる一覧成功。画面は未実装。置き換え先で本人の学習記録一覧が成功した事実を、`confirmed` として残す。旧トークンは失効しない。失効は [再接続の完了](reconnect-complete.md)。接続一覧に出ないこととは別で、一覧の除外は [接続一覧](token-list.md)。
+仕様は [07 の再接続API](../specs/07-agent-connection.md) の、新トークンによる一覧成功。画面は [再接続の画面](reconnect-screen.md)。置き換え先で本人の学習記録一覧が成功した事実を、`confirmed` として残す。旧トークンは失効しない。失効は [再接続の完了](reconnect-complete.md)。接続一覧に出ないこととは別で、一覧の除外は [接続一覧](token-list.md)。
 
 ## 何のためか
 
@@ -93,4 +93,4 @@ now, err = activeReplacement(ctx, tx, r, s.now)
 
 ## 未決
 
-なし。確認が旧トークンを失効しないことは、上の UPDATE で決まっている。画面は未実装。
+なし。確認が旧トークンを失効しないことは、上の UPDATE で決まっている。画面は [再接続の画面](reconnect-screen.md)。

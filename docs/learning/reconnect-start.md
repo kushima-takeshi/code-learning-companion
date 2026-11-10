@@ -1,6 +1,6 @@
 # 再接続の開始
 
-仕様は [07 の再接続API](../specs/07-agent-connection.md)。画面は未実装。用語は [旧トークン](glossary.md#旧トークン)、[置き換え先](glossary.md#置き換え先)、[再接続リクエスト](glossary.md#再接続リクエスト)。保存する状態の全体は下の図。確認は [再接続の確認](reconnect-confirm.md)、完了は [再接続の完了](reconnect-complete.md)、やり直しは [再接続のやり直し](reconnect-restart.md)、表示は [再接続の状態取得](reconnect-status.md)。
+仕様は [07 の再接続API](../specs/07-agent-connection.md)。画面は [再接続の画面](reconnect-screen.md)。用語は [旧トークン](glossary.md#旧トークン)、[置き換え先](glossary.md#置き換え先)、[再接続リクエスト](glossary.md#再接続リクエスト)。保存する状態の全体は下の図。確認は [再接続の確認](reconnect-confirm.md)、完了は [再接続の完了](reconnect-complete.md)、やり直しは [再接続のやり直し](reconnect-restart.md)、表示は [再接続の状態取得](reconnect-status.md)。
 
 保存する状態は `pending` `confirmed` `completed` `superseded` `expired` の5つ。`unavailable` は応答だけの語で、表には書かない。
 
@@ -105,8 +105,8 @@ current, err := scanReconnect(row)
 revoked_at = LEAST(COALESCE(revoked_at, 退役時刻), 退役時刻)
 ```
 
-旧トークンがその後に期限切れや失効になっていても、6の再送は返す。これは仕様に無い判断。画面は未実装。`token_unavailable` のときは「作り直す」へ案内し、追加画面を同じ接続名を入れた状態で開く、と仕様07にある。
+旧トークンがその後に期限切れや失効になっていても、6の再送は返す。これは仕様に無い判断。画面は [再接続の画面](reconnect-screen.md)。`token_unavailable` のときは「作り直す」へ案内し、追加画面を同じ接続名を入れた状態で開く、と仕様07にある。
 
 ## 未決
 
-なし。PR #29 のレビューのうち、使えない旧トークンからの新規開始は上の振る舞いで決まっている。一覧の見せ方は [接続一覧](token-list.md)。画面の「作り直す」は未実装。
+なし。PR #29 のレビューのうち、使えない旧トークンからの新規開始は上の振る舞いで決まっている。一覧の見せ方は [接続一覧](token-list.md)。画面の「作り直す」は [接続画面](connection-screen.md)。409からの案内は [再接続の画面](reconnect-screen.md)。
