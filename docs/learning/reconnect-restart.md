@@ -75,4 +75,4 @@ revoked_at = LEAST(COALESCE(revoked_at, 退役時刻), 退役時刻)
 
 ## 未決
 
-なし。期限後のやり直しを拒否することは、上の分岐で決まっている。画面の「やり直す」は未実装。
+なし。期限後のやり直しを拒否することは、上の分岐で決まっている。画面の「やり直す」は実装済み（`ReconnectPanel.tsx`、`ConnectionSection.tsx` の `handleRestart`）。2026-11-12に実Goサーバーで確認済み。
