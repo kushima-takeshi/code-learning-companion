@@ -5,8 +5,8 @@
 # - pull_request: プルリクエストの作成と、そのブランチへの追加の push
 # - push の branches: main へ入った直後（マージや、main への直接 push）
 #
-# backend と frontend は別ジョブで、互いに待たずに同時に進む。
-# どちらかが失敗すると、このワークフロー全体が失敗になる。
+# backend、frontend、mcp は別ジョブで、互いに待たずに同時に進む。
+# どれかが失敗すると、このワークフロー全体が失敗になる。
 
 name: CI
 
@@ -147,3 +147,36 @@ jobs:
       # 開発サーバでは動いても、型やバンドルの段階で落ちることがある。
       - name: ビルドを実行する
         run: npm run build
+
+  mcp:
+    name: mcp
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - name: コードを取得する
+        uses: actions/checkout@v7
+
+      # mcp は標準ライブラリだけを使う。go.sum は無い。
+      - name: Goを用意する
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.10"
+          cache: false
+
+      - name: go vetを実行する
+        run: go vet ./...
+
+      - name: gofmtの差分を検査する
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt が必要なファイル:"
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: テストを実行する
+        run: go test ./... -count=1
