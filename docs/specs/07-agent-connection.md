@@ -50,7 +50,7 @@
 3. 発行・一覧・失効のWeb画面をつなぐ。トークン本体の再表示は行わない。名前変更を含む画面契約は下記「接続画面と名前変更API」。再接続の画面は含めない。
 4. 学習記録APIとローカル接続ツールを接続し、本人の保存・取得を確認する。
 
-これは作業順序であり、実装完了を示さない。保存先はマイグレーション5のconnection_tokensとして実装済み。管理APIのパス・入出力は下記のとおり実装済み。学習記録の一覧・保存・詳細取得APIは仕様03のとおり実装・実DB検証済み。発行件数・頻度の上限、画面、MCPの配布設定は後続で整理する。ローカルMCPの残作業は [Issue #44](https://github.com/kushima-takeshi/code-learning-companion/issues/44)。目的: 薄いローカルアダプターから連携トークンで学習記録APIを呼ぶ。接続方式は第二案の案のままで、ツール名などの契約は未確定。1つのAIツールからの最小試作は [Issue #45](https://github.com/kushima-takeshi/code-learning-companion/issues/45)。目的: 本人認証した1つのツールから、確認した固定データを保存し再取得する。
+これは作業順序であり、実装完了を示さない。保存先はマイグレーション5のconnection_tokensとして実装済み。管理APIのパス・入出力は下記のとおり実装済み。学習記録の一覧・保存・詳細取得APIは仕様03のとおり実装・実DB検証済み。発行件数・頻度の上限、画面、MCPの配布設定は後続で整理する。ローカルMCPの残作業は [Issue #44](https://github.com/kushima-takeshi/code-learning-companion/issues/44)。目的: 薄いローカルアダプターから連携トークンで学習記録APIを呼ぶ。接続方式は第二案の案のままで、ツールの契約案は [仕様08](08-local-mcp.md)。合意前であり、実装しない。1つのAIツールからの最小試作は [Issue #45](https://github.com/kushima-takeshi/code-learning-companion/issues/45)。目的: 本人認証した1つのツールから、確認した固定データを保存し再取得する。
 
 ## 確認すること
 
