@@ -71,6 +71,7 @@ func (c *Client) DoJSON(ctx context.Context, method, path string, payload any) (
 	return resp.StatusCode, respBody, nil
 }
 
+// redact is a safeguard: the token normally travels only in the Authorization header, but a misconfigured MCP_API_BASE_URL could put it into error text.
 func (c *Client) redact(err error) error {
 	if err == nil || c.token == "" {
 		return err
