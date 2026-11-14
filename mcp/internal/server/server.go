@@ -13,8 +13,11 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// listInput has no fields. This tool takes no arguments.
-type listInput struct{}
+// listInput carries optional paging. Nil means the query parameter is omitted.
+type listInput struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
 
 type listPage struct {
 	Records []listRecord `json:"records"`
@@ -32,9 +35,9 @@ func New(client *api.Client) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "code-learning-companion", Version: "0.1.0"}, nil)
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_learning_records",
-		Description: "List saved learning records for the connection token. No arguments.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ listInput) (*mcp.CallToolResult, listPage, error) {
-		return listLearningRecords(ctx, client)
+		Description: "List saved learning records. Optional limit (1-100) and offset.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in listInput) (*mcp.CallToolResult, listPage, error) {
+		return listLearningRecords(ctx, client, in)
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "save_learning_record",
@@ -51,8 +54,8 @@ func New(client *api.Client) *mcp.Server {
 	return s
 }
 
-func listLearningRecords(ctx context.Context, client *api.Client) (*mcp.CallToolResult, listPage, error) {
-	status, body, err := client.DoJSON(ctx, http.MethodGet, "/learning-records", nil)
+func listLearningRecords(ctx context.Context, client *api.Client, in listInput) (*mcp.CallToolResult, listPage, error) {
+	status, body, err := client.DoJSON(ctx, http.MethodGet, listPath(in), nil)
 	if err != nil {
 		return nil, listPage{}, errors.New("list learning records failed: " + err.Error())
 	}
@@ -64,6 +67,20 @@ func listLearningRecords(ctx context.Context, client *api.Client) (*mcp.CallTool
 		return nil, listPage{}, errors.New("list learning records failed: invalid response")
 	}
 	return nil, page, nil
+}
+
+func listPath(in listInput) string {
+	query := url.Values{}
+	if in.Limit != nil {
+		query.Set("limit", strconv.Itoa(*in.Limit))
+	}
+	if in.Offset != nil {
+		query.Set("offset", strconv.Itoa(*in.Offset))
+	}
+	if len(query) == 0 {
+		return "/learning-records"
+	}
+	return "/learning-records?" + query.Encode()
 }
 
 func failureText(action string, status int, body []byte) string {

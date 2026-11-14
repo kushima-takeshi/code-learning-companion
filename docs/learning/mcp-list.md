@@ -1,10 +1,10 @@
 # 学習記録の一覧ツール
 
-仕様は [08](../specs/08-local-mcp.md)。このノートは `list_learning_records` だけ。保存と詳細取得はまだ無い。
+仕様は [08](../specs/08-local-mcp.md)。このノートは `list_learning_records` だけ。保存は [学習記録の保存ツール](mcp-save.md)。詳細取得は [学習記録の詳細取得ツール](mcp-get.md)。
 
 ## 何のためか
 
-使う人は、手元のAIツール。入力は引数なし。出力は本人の学習記録の `id`、`theme`、`created_at` と `has_more`。問題本文は返さない。データベースはこのプロセスでは更新しない。
+使う人は、手元のAIツール。入力は任意の `limit` と `offset`。出力は本人の学習記録の `id`、`theme`、`created_at` と `has_more`。問題本文は返さない。データベースはこのプロセスでは更新しない。
 
 ## 状態の流れ
 
@@ -18,7 +18,7 @@ stdio。待ち受けるポートは無い。起動は [main.go](../../mcp/cmd/ad
 |---|---|---|
 | 1 | [config.go Load](../../mcp/internal/config/config.go) | なし |
 | 2 | [client.go New](../../mcp/internal/api/client.go) | なし |
-| 3 | [server.go New](../../mcp/internal/server/server.go) | なし。ツールを1つ登録する |
+| 3 | [server.go New](../../mcp/internal/server/server.go) | なし。一覧ツールを登録する |
 | 4 | [server.go listLearningRecords](../../mcp/internal/server/server.go) | なし。`DoJSON` で GET |
 
 ## 関数ごとの表
@@ -28,12 +28,13 @@ stdio。待ち受けるポートは無い。起動は [main.go](../../mcp/cmd/ad
 | `Load` | トークンと基点を読む | 環境変数 | `Config` かエラー | なし |
 | `New`（client） | HTTPクライアントを作る | 基点、トークン | `*api.Client` | なし |
 | `New`（server） | MCPサーバーを作る | `*api.Client` | `*mcp.Server` | なし |
-| `listLearningRecords` | 一覧を取る | context、client | 一覧かツールエラー | なし |
+| `listLearningRecords` | 一覧を取る | context、client、`listInput` | 一覧かツールエラー | なし |
+| `listPath` | 指定された項目だけをクエリにする | `listInput` | パス | なし |
 
 ## なぜそうしたか
 
-引数は付けない。仕様08の `limit` と `offset` は、この段階では出さない。失敗はHTTPステータスと `error` のコードだけを返し、応答本文は返さない。トークンは `DoJSON` の `redact` が通信エラーから除く。
+`limit` と `offset` は、値が入っているときだけクエリに載せる。空ならクエリは無い。APIの既定は `limit` 20、`offset` 0、`limit` は1〜100。範囲外はAPIが400 `invalid_pagination` にする。失敗はステータスと `error` のコードだけを返し、応答本文は返さない。
 
 ## 未決
 
-保存は [学習記録の保存ツール](mcp-save.md)。詳細取得は [学習記録の詳細取得ツール](mcp-get.md)。一覧の `limit` と `offset` は未実装。Issue #44 と全体ブロック2は未完了。
+保存は [学習記録の保存ツール](mcp-save.md)。詳細取得は [学習記録の詳細取得ツール](mcp-get.md)。保存の `validation_failed` の `details` は未実装。Issue #44 と全体ブロック2は未完了。

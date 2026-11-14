@@ -31,6 +31,24 @@ func TestListToolReturnsRecords(t *testing.T) {
 	}
 }
 
+func TestListToolSendsPagingQuery(t *testing.T) {
+	const token = "clc_secret_value"
+	limit, offset := 10, 5
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.RawQuery != "limit=10&offset=5" {
+			t.Errorf("query = %q", r.URL.RawQuery)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"records":[],"has_more":false}`))
+	}))
+	defer upstream.Close()
+
+	text, isError := callTool(t, upstream.URL, token, "list_learning_records", listInput{Limit: &limit, Offset: &offset})
+	if isError || strings.Contains(text, token) {
+		t.Fatalf("isError=%v text=%s", isError, text)
+	}
+}
+
 func TestFailureTextUsesStatusAndCodeOnly(t *testing.T) {
 	for _, tc := range []struct {
 		status int
