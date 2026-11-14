@@ -105,6 +105,41 @@ func TestSaveToolHidesTokenOnConflict(t *testing.T) {
 	}
 }
 
+func TestGetToolReturnsRecord(t *testing.T) {
+	const token = "clc_secret_value"
+	const id = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/learning-records/"+id || r.URL.RawQuery != "" {
+			t.Errorf("request %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"` + id + `","request_id":"` + id + `","theme":"loops","questions":[],"created_at":"2026-11-14T00:00:00Z"}`))
+	}))
+	defer upstream.Close()
+
+	text, isError := callTool(t, upstream.URL, token, "get_learning_record", getInput{ID: id})
+	if isError || !strings.Contains(text, "loops") || strings.Contains(text, token) {
+		t.Fatalf("isError=%v text=%s", isError, text)
+	}
+}
+
+func TestGetToolHidesTokenOnNotFound(t *testing.T) {
+	const token = "clc_secret_value"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.RequestURI != "/learning-records/a%2Fb" {
+			t.Errorf("request URI = %s", r.RequestURI)
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"record_not_found","detail":"` + token + `"}`))
+	}))
+	defer upstream.Close()
+
+	text, isError := callTool(t, upstream.URL, token, "get_learning_record", getInput{ID: "a/b"})
+	if !isError || !strings.Contains(text, "404 record_not_found") || strings.Contains(text, token) {
+		t.Fatalf("isError=%v text=%s", isError, text)
+	}
+}
+
 func callList(t *testing.T, baseURL, token string) (string, bool) {
 	t.Helper()
 	return callTool(t, baseURL, token, "list_learning_records", nil)

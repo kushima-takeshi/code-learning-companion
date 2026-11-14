@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/kushima-takeshi/code-learning-companion/mcp/internal/api"
@@ -26,7 +27,7 @@ type listRecord struct {
 	CreatedAt string `json:"created_at"`
 }
 
-// New registers list and save. It does not register get.
+// New registers list, save, and get.
 func New(client *api.Client) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "code-learning-companion", Version: "0.1.0"}, nil)
 	mcp.AddTool(s, &mcp.Tool{
@@ -40,6 +41,12 @@ func New(client *api.Client) *mcp.Server {
 		Description: "Save one confirmed learning record. Does not create a new API.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in saveInput) (*mcp.CallToolResult, savedRecord, error) {
 		return saveLearningRecord(ctx, client, in)
+	})
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_learning_record",
+		Description: "Get one saved learning record by id. Uses the existing record API.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in getInput) (*mcp.CallToolResult, savedRecord, error) {
+		return getLearningRecord(ctx, client, in)
 	})
 	return s
 }
@@ -115,4 +122,24 @@ func saveLearningRecord(ctx context.Context, client *api.Client, in saveInput) (
 		return nil, savedRecord{}, errors.New("save learning record failed: invalid response")
 	}
 	return nil, saved, nil
+}
+
+type getInput struct {
+	ID string `json:"id"`
+}
+
+func getLearningRecord(ctx context.Context, client *api.Client, in getInput) (*mcp.CallToolResult, savedRecord, error) {
+	path := "/learning-records/" + url.PathEscape(in.ID)
+	status, body, err := client.DoJSON(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, savedRecord{}, errors.New("get learning record failed: " + err.Error())
+	}
+	if status != http.StatusOK {
+		return nil, savedRecord{}, errors.New(failureText("get learning record", status, body))
+	}
+	var record savedRecord
+	if err := json.Unmarshal(body, &record); err != nil {
+		return nil, savedRecord{}, errors.New("get learning record failed: invalid response")
+	}
+	return nil, record, nil
 }
