@@ -33,4 +33,4 @@ stdio。待ち受けるポートは無い。登録は [server.go New](../../mcp/
 
 ## 未決
 
-詳細取得ツールは未実装。Issue #44 と全体ブロック2は未完了。
+詳細取得は [学習記録の詳細取得ツール](mcp-get.md)。`validation_failed` の `details` は未実装。Issue #44 と全体ブロック2は未完了。
