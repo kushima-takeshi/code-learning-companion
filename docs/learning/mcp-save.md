@@ -29,8 +29,8 @@ stdio。待ち受けるポートは無い。登録は [server.go New](../../mcp/
 
 ## なぜそうしたか
 
-失敗は一覧と同じ `failureText`。ステータスと `error` のコードだけを返し、応答本文とトークンは返さない。仕様08は `validation_failed` の `details` も返すと書く。この段階ではコードだけにする。
+失敗は一覧と同じ `failureText`。ステータスと `error` のコードだけを返す。`validation_failed` のときだけ、`details` の `path`、`code`、`allowed_values` を足す。それ以外の応答本文とトークンは返さない。
 
 ## 未決
 
-詳細取得は [学習記録の詳細取得ツール](mcp-get.md)。`validation_failed` の `details` は未実装。Issue #44 と全体ブロック2は未完了。
+詳細取得は [学習記録の詳細取得ツール](mcp-get.md)。実プロセスでの確認は未了。Issue #44 と全体ブロック2は未完了。

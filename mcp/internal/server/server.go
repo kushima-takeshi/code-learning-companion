@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/kushima-takeshi/code-learning-companion/mcp/internal/api"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -86,12 +87,41 @@ func listPath(in listInput) string {
 func failureText(action string, status int, body []byte) string {
 	code := "unknown"
 	var parsed struct {
-		Error string `json:"error"`
+		Error   string        `json:"error"`
+		Details []fieldDetail `json:"details"`
 	}
 	if json.Unmarshal(body, &parsed) == nil && parsed.Error != "" {
 		code = parsed.Error
 	}
-	return action + " failed: " + strconv.Itoa(status) + " " + code
+	text := action + " failed: " + strconv.Itoa(status) + " " + code
+	if code == "validation_failed" {
+		if extra := formatDetails(parsed.Details); extra != "" {
+			text += " " + extra
+		}
+	}
+	return text
+}
+
+// fieldDetail is the API's FieldError. Other JSON fields are ignored.
+type fieldDetail struct {
+	Path          string   `json:"path"`
+	Code          string   `json:"code"`
+	AllowedValues []string `json:"allowed_values"`
+}
+
+func formatDetails(details []fieldDetail) string {
+	if len(details) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(details))
+	for _, detail := range details {
+		item := "path=" + detail.Path + " code=" + detail.Code
+		if len(detail.AllowedValues) > 0 {
+			item += " allowed_values=" + strings.Join(detail.AllowedValues, ",")
+		}
+		parts = append(parts, item)
+	}
+	return "details " + strings.Join(parts, "; ")
 }
 
 // saveInput matches learningrecord.SaveInput. hint_used is required by that API.
