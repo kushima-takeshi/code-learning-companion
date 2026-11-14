@@ -37,4 +37,4 @@ stdio。待ち受けるポートは無い。起動は [main.go](../../mcp/cmd/ad
 
 ## 未決
 
-保存は [学習記録の保存ツール](mcp-save.md)。詳細取得は [学習記録の詳細取得ツール](mcp-get.md)。保存の `validation_failed` の `details` は未実装。Issue #44 と全体ブロック2は未完了。
+保存は [学習記録の保存ツール](mcp-save.md)。詳細取得は [学習記録の詳細取得ツール](mcp-get.md)。実プロセスでの確認は未了。Issue #44 と全体ブロック2は未完了。

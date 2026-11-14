@@ -109,6 +109,20 @@ func TestSaveToolPostsRecord(t *testing.T) {
 	}
 }
 
+func TestSaveToolReturnsValidationDetails(t *testing.T) {
+	const token = "clc_secret_value"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"validation_failed","detail":"` + token + `","details":[{"path":"theme","code":"required","note":"` + token + `"},{"path":"questions[0].type","code":"invalid_value","allowed_values":["free_text"]}]}`))
+	}))
+	defer upstream.Close()
+
+	text, isError := callTool(t, upstream.URL, token, "save_learning_record", saveInput{})
+	if !isError || !strings.Contains(text, "400 validation_failed") || !strings.Contains(text, "path=theme code=required") || !strings.Contains(text, "path=questions[0].type code=invalid_value allowed_values=free_text") || strings.Contains(text, token) || strings.Contains(text, "{") {
+		t.Fatalf("isError=%v text=%s", isError, text)
+	}
+}
+
 func TestSaveToolHidesTokenOnConflict(t *testing.T) {
 	const token = "clc_secret_value"
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
