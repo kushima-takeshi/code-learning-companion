@@ -31,4 +31,4 @@ stdio。待ち受けるポートは無い。登録は [server.go New](../../mcp/
 
 ## 未決
 
-一覧の `limit` と `offset`、保存の `validation_failed` の `details` は未実装。Issue #44 と全体ブロック2は未完了。
+保存の `validation_failed` の `details` は未実装。Issue #44 と全体ブロック2は未完了。
