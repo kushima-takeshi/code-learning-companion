@@ -46,7 +46,7 @@
 
 1. 接続画面のうち、追加・一覧・原本の一度表示・名前変更・失効・使えない行の「作り直す」に加え、再接続の欄（開始・手動の状態確認・完了・やり直し）も入った。未完了の置き換え先は接続一覧に出さない。409 `token_unavailable` のときは追加欄へ同じ名前を入れて案内し、追加するまで発行しない。ローカルMCPは [Issue #44](https://github.com/kushima-takeshi/code-learning-companion/issues/44)。目的: 薄いローカルアダプターから連携トークンで学習記録APIを呼ぶ。契約案は [仕様08](specs/08-local-mcp.md)。一覧・保存・詳細取得の3つ。名前は `list_learning_records`、`save_learning_record`、`get_learning_record` で確定。旧草案は採用しない。stdioで3ツールを実装した。一覧は任意の `limit` と `offset` を、指定時だけクエリで送る。保存の `validation_failed` は `details` の `path`、`code`、`allowed_values` を返す。2026-11-16に、Cursorのstdioで一覧（引数なし、limit 1・offset 0）、保存（成功と type=multiple_choice の400 validation_failed）、詳細取得を確認した。Issue #44 と全体ブロック2は未完了。説明は [一覧](learning/mcp-list.md)、[保存](learning/mcp-save.md)、[詳細](learning/mcp-get.md)。説明は [接続画面](learning/connection-screen.md)、[再接続の画面](learning/reconnect-screen.md)、[接続一覧](learning/token-list.md)。全体ブロック2は、この画面が入っても未完了。
 2. 1つのAIツールからの最小試作は [Issue #45](https://github.com/kushima-takeshi/code-learning-companion/issues/45)。2026-11-16にCursorのstdioで本人の保存・再取得を確認し、2026-11-17に別ユーザーの記録は `404 record_not_found` で、一覧にも出ないことを確認した。Issue #45は開いたまま。計画v2は最初の対象をCodexとし、この確認はCursorで行った。この確認だけでは全体ブロック2を完了にしない。
-3. 使用不能トークンの定期整理は [Issue #46](https://github.com/kushima-takeshi/code-learning-companion/issues/46)。目的: 使用不能後30日保持し、1日1回整理する。合意済みだが未実装。実行基盤・再試行・再接続管理情報の保持範囲と、外部キーを解消する削除順序は、実装前の未決のまま。
+3. 使用不能トークンの定期整理は [Issue #46](https://github.com/kushima-takeshi/code-learning-companion/issues/46)。目的: 使用不能後30日保持し、1日1回整理する。実行場所・失敗時・削除順・履歴なしは2026-11-17に [仕様07](specs/07-agent-connection.md) へ記録した。実装は次。#46 と全体ブロック2は未完了。
 4. 保存・一覧・詳細APIの契約は仕様03、再接続を含む認証契約と接続画面は仕様07へ記録済み。
 
 ## 接続画面（2026-11-06）
