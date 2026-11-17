@@ -2,7 +2,10 @@ package connectiontoken
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -85,6 +88,53 @@ func TestCleanupUnusableTokens(t *testing.T) {
 	}
 }
 
+func TestCleanupDeletesUnfinishedReplacementWithOldToken(t *testing.T) {
+	db := newIntegrationDB(t)
+	owner := createUser(t, db)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	now := time.Date(2026, 11, 17, 9, 0, 0, 0, time.UTC)
+	cutoff := now.Add(-UnusableRetention)
+	oldExpires := cutoff.Add(-time.Microsecond)
+	started := oldExpires.Add(-time.Hour)
+	if window := started.Add(ReconnectLifetime); !window.After(cutoff) || !window.Before(now) {
+		t.Fatal("24時間の起点が30日以内で、かつ今より前であることを前提にする")
+	}
+
+	old := insertToken(t, db, owner, 1, started.Add(-time.Hour), oldExpires, nil)
+	pendingSecret := "clc_" + strings.Repeat("ab", 32)
+	pendingNew := insertTokenSecret(t, db, owner, pendingSecret, started, started.Add(Lifetime))
+	insertReconnect(t, db, owner, old, pendingNew, "pending", started, nil, nil)
+
+	completedOldExpires := cutoff.Add(-time.Hour)
+	completedStart := completedOldExpires.Add(-time.Hour)
+	completedOld := insertToken(t, db, owner, 2, completedStart.Add(-time.Hour), completedOldExpires, nil)
+	keptSecret := "clc_" + strings.Repeat("cd", 32)
+	keptNew := insertTokenSecret(t, db, owner, keptSecret, completedStart, completedStart.Add(Lifetime))
+	confirmedAt := completedStart
+	completedAt := completedStart.Add(time.Hour)
+	insertReconnect(t, db, owner, completedOld, keptNew, "completed", completedStart, &confirmedAt, &completedAt)
+
+	service := New(db)
+	service.now = func() time.Time { return now }
+	if _, err := service.CleanupUnusableTokens(ctx, now); err != nil {
+		t.Fatal(err)
+	}
+	if rowExists(t, db, "connection_tokens", old) || rowExists(t, db, "connection_tokens", pendingNew) || rowExists(t, db, "connection_tokens", completedOld) {
+		t.Fatal("期限を過ぎた旧トークンか、未完了の置き換え先が残った")
+	}
+	if !rowExists(t, db, "connection_tokens", keptNew) {
+		t.Fatal("完了した置き換え先を消した")
+	}
+	if _, err := service.Authenticate(ctx, pendingSecret); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("消した置き換え先は認証できない: %v", err)
+	}
+	got, err := service.Authenticate(ctx, keptSecret)
+	if err != nil || got.ID != keptNew {
+		t.Fatalf("完了した置き換え先は使える: %+v %v", got, err)
+	}
+}
+
 func insertToken(t *testing.T, db *sql.DB, userID string, mark byte, created, expires time.Time, revoked *time.Time) string {
 	t.Helper()
 	hash := make([]byte, 32)
@@ -95,6 +145,21 @@ func insertToken(t *testing.T, db *sql.DB, userID string, mark byte, created, ex
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
 	`, userID, "接続", hash, created, expires, revoked).Scan(&id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func insertTokenSecret(t *testing.T, db *sql.DB, userID, secret string, created, expires time.Time) string {
+	t.Helper()
+	hash := sha256.Sum256([]byte(secret))
+	var id string
+	err := db.QueryRow(`
+		INSERT INTO connection_tokens (user_id, name, token_hash, created_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
+	`, userID, "接続", hash[:], created, expires).Scan(&id)
 	if err != nil {
 		t.Fatal(err)
 	}

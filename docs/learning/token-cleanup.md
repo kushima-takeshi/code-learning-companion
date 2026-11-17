@@ -11,7 +11,7 @@
 
 トークンの状態は変えない。対象の行を消すだけ。
 
-使用不能の起点は、`expires_at` と `revoked_at` の早い方。`state` が `completed` でない再接続の `new_token_id` は、その再接続の `expires_at`（開始から24時間）も起点に数える。`completed` の置き換え先は、トークン自身の期限と失効だけを見る。起点から30日ちょうどは残し、それを過ぎてから消す。
+使用不能の起点は、`expires_at` と `revoked_at` の早い方。`state` が `completed` でない再接続の `new_token_id` は、その再接続の `expires_at`（開始から24時間）も起点に数える。旧トークンを消すときは、その旧トークンから出た未完了の置き換え先も一緒に消す。24時間の起点がまだ30日以内でも消す。再接続行だけ消すと、置き換え先が再び使える。`completed` の置き換え先は残す。起点から30日ちょうどは残し、それを過ぎてから消す。
 
 ## 呼び出しの流れ
 
@@ -19,7 +19,7 @@ HTTPは無い。サーバーの1日1回の起動も、まだ呼んでいない�
 
 | 順 | 呼び出し | SQL |
 |---|---|---|
-| 1 | [cleanup.go CleanupUnusableTokens](../../backend/internal/connectiontoken/cleanup.go) | 対象の `connection_tokens` を `FOR UPDATE` |
+| 1 | [cleanup.go CleanupUnusableTokens](../../backend/internal/connectiontoken/cleanup.go) | 対象の `connection_tokens` を `FOR UPDATE`。旧トークンの未完了な置き換え先も対象に足す |
 | 2 | 同じ関数 | `connection_reconnections` を、`old_token_id` か `new_token_id` が対象なら先に削除 |
 | 3 | 同じ関数 | 対象の `connection_tokens` を削除して commit |
 
@@ -41,7 +41,7 @@ cutoff := now.UTC().Truncate(time.Microsecond).Add(-UnusableRetention)
 
 外部キーがあるので、再接続行を先に消してからトークンを消す。1つのトランザクションにする。削除は同じ対象を重ねて消さないので、2回目は0件。二重実行の防止はしない。
 
-`completed` の置き換え先を24時間で使用不能にしない。完了した接続は、発行から90日の期限のままにする。`pending` のまま24時間を過ぎた置き換え先は、行の状態が `expired` に変わっていなくても、再接続の `expires_at` を起点にする。
+`completed` の置き換え先を24時間で使用不能にしない。完了した接続は、発行から90日の期限のままにする。`pending` のまま24時間を過ぎた置き換え先は、行の状態が `expired` に変わっていなくても、再接続の `expires_at` を起点にする。旧トークンが先に30日を過ぎたときも、未完了の置き換え先は残さない。
 
 ## 未決
 
