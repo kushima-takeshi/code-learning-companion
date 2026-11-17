@@ -233,6 +233,16 @@ token, err := scanToken(row)
 
 場所: `backend/internal/connectiontoken/service.go` の `scanToken`。`Issue` は `QueryRowContext` の行を渡し、`backend/internal/connectiontoken/manage.go` の `List` は `rows` を渡す。別の例は `backend/internal/primport/service.go` の `prFetcher`。`backend/internal/primport/prepare.go` の `prepare` が `s.github.FetchPR` を呼ぶ。
 
+## 定期整理
+
+使用不能から30日を過ぎた接続トークンを消す処理。再接続行を先に消し、続けてトークンを消す。学習記録は消さない。1日1回の起動はまだ無い。
+
+```go
+result, err := service.CleanupUnusableTokens(ctx, now)
+```
+
+場所: `backend/internal/connectiontoken/cleanup.go` の `CleanupUnusableTokens`。説明は [定期整理の削除](token-cleanup.md)。
+
 ## 接続名
 
 接続を見分ける表示ラベル。認証や、どの接続を差し替えるかの判定には使わない。前後の空白を除き、空なら拒否する。同名は何件でも置ける。
