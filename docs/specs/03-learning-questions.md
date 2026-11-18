@@ -131,7 +131,7 @@ GoからのAI呼び出し、AI APIキー入力、アプリ独自の回答・チ�
 
 ## ブロック3の合意（2026-11-18）
 
-未実装。置き場所は `skills/learning-companion/SKILL.md`。出題手順はまだ書かない。
+未実装。`skills/learning-companion/SKILL.md` は候補から判定まで。送信前確認と保存はまだ書かない。
 
 - 最初のAIツールはCursor。
 - 原本は `skills/learning-companion/SKILL.md`。使うときは `~/.cursor/skills` へ一度シンボリックリンクを張る。レビューはリポジトリのファイルだけで行う。
