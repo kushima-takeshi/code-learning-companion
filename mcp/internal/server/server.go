@@ -141,6 +141,7 @@ type saveQuestion struct {
 type saveAnswer struct {
 	Text     string `json:"text"`
 	HintUsed *bool  `json:"hint_used"`
+	Code     string `json:"code,omitempty"`
 }
 
 type saveFeedback struct {

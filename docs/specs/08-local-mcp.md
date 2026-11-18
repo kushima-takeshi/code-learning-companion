@@ -29,7 +29,7 @@
 | 名前 | 呼ぶもの | 入力 | 成功時の出力 |
 |---|---|---|---|
 | `list_learning_records` | `GET /learning-records` | `limit`（省略時20、1〜100）、`offset`（省略時0）。所有者もトークンも取らない | `records`（`id`・`theme`・`created_at`）と `has_more`。0件も成功。問題本文は返さない |
-| `save_learning_record` | `POST /learning-records` | `request_id`・`theme`・`questions`（1〜10問、現行の `free_text`）。`Content-Type: application/json`。最大1 MiB | `id`・`request_id`・`theme`・`questions`・`created_at`。新規も同一内容の再送も200。再送は件数を増やさない |
+| `save_learning_record` | `POST /learning-records` | `request_id`・`theme`・`questions`（1〜10問、現行の `free_text`）。`answer.code` は任意。`Content-Type: application/json`。最大1 MiB | `id`・`request_id`・`theme`・`questions`・`created_at`。新規も同一内容の再送も200。再送は件数を増やさない |
 | `get_learning_record` | 既存の `GET /learning-records/{id}` | `id`（記録のUUID）。所有者もトークンも取らない | `id`・`request_id`・`theme`・`questions`・`created_at`。問題・回答・フィードバックを含む。新しいサーバーAPIは作らない |
 
 一覧の200は、未完了の再接続ならサーバーが確認状態にする。アダプターはそれを別の操作にしない。

@@ -18,6 +18,9 @@ type Question struct {
 type Answer struct {
 	Text     string `json:"text"`
 	HintUsed *bool  `json:"hint_used"`
+	// Code is the learner's submitted answer code. Empty means it was omitted.
+	// Repository source is not stored in this field.
+	Code string `json:"code,omitempty"`
 }
 
 type Feedback struct {
