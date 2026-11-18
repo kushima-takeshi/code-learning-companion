@@ -3,8 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/auth"
@@ -57,7 +61,15 @@ func main() {
 	importHandler := primport.NewHandler(importService)
 
 	mux := http.NewServeMux()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	connectionTokens := connectiontoken.New(database)
+	go connectiontoken.RunCleanupSchedule(ctx, connectiontoken.CleanupSchedule{
+		Interval: connectiontoken.CleanupInterval,
+		Now:      time.Now,
+		Cleanup:  connectionTokens.CleanupUnusableTokens,
+		Logf:     log.Printf,
+	})
 	connectionTokenHandler := connectiontoken.NewHandler(connectionTokens)
 	if err := connectionTokenHandler.RegisterRoutes(mux, authHandler.RequireAuth, cfg.CORSOrigin); err != nil {
 		log.Fatalf("initialize connection token management: %v", err)
@@ -118,11 +130,25 @@ func main() {
 	})
 
 	addr := ":" + cfg.Port
+	server := &http.Server{Addr: addr, Handler: withCORS(cfg.CORSOrigin, mux)}
 	log.Printf("server listening on %s", addr)
-	if err := http.ListenAndServe(addr, withCORS(cfg.CORSOrigin, mux)); err != nil {
-		log.Fatal(err)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.ListenAndServe()
+	}()
+	select {
+	case err := <-errCh:
+		stop()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Fatal(err)
+		}
 	}
-
 }
 
 func withCORS(origin string, next http.Handler) http.Handler {
