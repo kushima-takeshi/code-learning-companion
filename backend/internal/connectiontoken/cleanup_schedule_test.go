@@ -15,7 +15,7 @@ func TestRunCleanupScheduleStops(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		RunCleanupSchedule(ctx, CleanupSchedule{
-			Interval: 20 * time.Millisecond,
+			Interval: time.Hour,
 			Now:      func() time.Time { return time.Date(2026, 11, 18, 0, 0, 0, 0, time.UTC) },
 			Cleanup: func(context.Context, time.Time) (CleanupResult, error) {
 				mu.Lock()
@@ -51,7 +51,7 @@ func TestRunCleanupScheduleStops(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	if calls != stopped || stopped < 1 {
-		t.Fatalf("停止後に実行が続いた: before=%d after=%d", stopped, calls)
+		t.Fatalf("起動直後に1回実行し、停止後は続けない: before=%d after=%d", stopped, calls)
 	}
 }
 
@@ -65,7 +65,7 @@ func TestRunCleanupScheduleContinuesAfterFailure(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		RunCleanupSchedule(ctx, CleanupSchedule{
-			Interval: 40 * time.Millisecond,
+			Interval: 80 * time.Millisecond,
 			Now:      func() time.Time { return now },
 			Cleanup: func(context.Context, time.Time) (CleanupResult, error) {
 				mu.Lock()
@@ -100,7 +100,7 @@ func TestRunCleanupScheduleContinuesAfterFailure(t *testing.T) {
 	if len(calls) < 2 {
 		t.Fatalf("失敗でループが止まった: %d", len(calls))
 	}
-	if gap := calls[1].Sub(calls[0]); gap < 30*time.Millisecond {
+	if gap := calls[1].Sub(calls[0]); gap < 50*time.Millisecond {
 		t.Fatalf("失敗の直後に再試行した: %s", gap)
 	}
 	if len(logs) < 2 || logs[0] != "connection token cleanup failed: %v" || logs[1] != "connection token cleanup deleted %d reconnections and %d tokens" {

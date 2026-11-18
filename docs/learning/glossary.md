@@ -235,7 +235,7 @@ token, err := scanToken(row)
 
 ## 定期整理
 
-使用不能から30日を過ぎた接続トークンを消す処理。再接続行を先に消し、続けてトークンを消す。学習記録は消さない。Goサーバーは起動の24時間後から1日1回呼ぶ。
+使用不能から30日を過ぎた接続トークンを消す処理。再接続行を先に消し、続けてトークンを消す。学習記録は消さない。Goサーバーは起動直後に1回、その後24時間ごとに呼ぶ。
 
 ```go
 go RunCleanupSchedule(ctx, CleanupSchedule{Interval: CleanupInterval, Cleanup: service.CleanupUnusableTokens})
