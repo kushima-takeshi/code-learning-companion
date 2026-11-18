@@ -1,6 +1,6 @@
 # 定期整理の削除
 
-仕様は [07 の30日保持](../specs/07-agent-connection.md)。1日1回の起動は、このノートの範囲外。
+仕様は [07 の30日保持](../specs/07-agent-connection.md)。
 
 ## 何のためか
 
@@ -15,13 +15,15 @@
 
 ## 呼び出しの流れ
 
-HTTPは無い。サーバーの1日1回の起動も、まだ呼んでいない。
+HTTPは無い。`main` がシグナルの context でループを起動する。起動直後は実行せず、24時間後が1回目。
 
 | 順 | 呼び出し | SQL |
 |---|---|---|
-| 1 | [cleanup.go CleanupUnusableTokens](../../backend/internal/connectiontoken/cleanup.go) | 対象の `connection_tokens` を `FOR UPDATE`。旧トークンの未完了な置き換え先も対象に足す |
-| 2 | 同じ関数 | `connection_reconnections` を、`old_token_id` か `new_token_id` が対象なら先に削除 |
-| 3 | 同じ関数 | 対象の `connection_tokens` を削除して commit |
+| 1 | [main.go main](../../backend/cmd/server/main.go) | なし。`RunCleanupSchedule` を goroutine で始める |
+| 2 | [cleanup_schedule.go RunCleanupSchedule](../../backend/internal/connectiontoken/cleanup_schedule.go) | なし。`time.NewTicker` で24時間ごとに `CleanupUnusableTokens` |
+| 3 | [cleanup.go CleanupUnusableTokens](../../backend/internal/connectiontoken/cleanup.go) | 対象の `connection_tokens` を `FOR UPDATE`。旧トークンの未完了な置き換え先も対象に足す |
+| 4 | 同じ関数 | `connection_reconnections` を、`old_token_id` か `new_token_id` が対象なら先に削除 |
+| 5 | 同じ関数 | 対象の `connection_tokens` を削除して commit |
 
 ```go
 cutoff := now.UTC().Truncate(time.Microsecond).Add(-UnusableRetention)
@@ -33,16 +35,17 @@ cutoff := now.UTC().Truncate(time.Microsecond).Add(-UnusableRetention)
 
 | 関数 | 目的 | 入力 | 出力 | 更新するもの |
 |---|---|---|---|---|
+| `RunCleanupSchedule` | 24時間ごとに削除を呼ぶ | `ctx`, `CleanupSchedule` | なし。キャンセルで戻る | なし。成功と失敗をログする |
 | `CleanupUnusableTokens` | 30日を過ぎた使用不能トークンを消す | `ctx`, `now` | `CleanupResult`（再接続行とトークンの件数） | 対象の再接続行、続けて対象のトークン。学習記録とユーザーは触らない |
 | `deleteByIDs` | 集めたIDで削除する | `tx`, SQL, ID | 件数 | 渡したSQLの行 |
 | `numberedPlaceholders` | `IN` の位置を作る | 個数と開始番号 | `$1,$2,...` | なし |
 
 ## なぜそうしたか
 
-外部キーがあるので、再接続行を先に消してからトークンを消す。1つのトランザクションにする。削除は同じ対象を重ねて消さないので、2回目は0件。二重実行の防止はしない。
+外部キーがあるので、再接続行を先に消してからトークンを消す。1つのトランザクションにする。削除は同じ対象を重ねて消さないので、2回目は0件。二重実行の防止はしない。失敗してもすぐには再試行せず、次の24時間に任せる。成功時は削除件数だけをログに出す。
 
 `completed` の置き換え先を24時間で使用不能にしない。完了した接続は、発行から90日の期限のままにする。`pending` のまま24時間を過ぎた置き換え先は、行の状態が `expired` に変わっていなくても、再接続の `expires_at` を起点にする。旧トークンが先に30日を過ぎたときも、未完了の置き換え先は残さない。
 
 ## 未決
 
-1日1回、Goサーバーの中でこの関数を呼ぶ起動は未配線。失敗時の即時再試行はしない。画面にトークン履歴は出さない。
+実サーバーで24時間後の実行は未確認。#46 と全体ブロック2は未完了。画面にトークン履歴は出さない。
