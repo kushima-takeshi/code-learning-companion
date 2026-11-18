@@ -25,7 +25,7 @@ stdio。待ち受けるポートは無い。登録は [server.go New](../../mcp/
 |---|---|---|---|---|
 | `saveLearningRecord` | 確認済みの記録を保存する | context、client、`saveInput` | 保存結果かツールエラー | なし。保存はAPI側 |
 
-`saveInput` のJSONは `learningrecord.SaveInput` と同じ。`hint_used` は必須なので、JSONから省かない。
+`saveInput` のJSONは `learningrecord.SaveInput` と同じ。`hint_used` は必須なので、JSONから省かない。`answer.code` は任意で、空なら送らない。
 
 ## なぜそうしたか
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -76,6 +77,41 @@ func TestListToolHidesTokenOnUnauthorized(t *testing.T) {
 	text, isError := callList(t, upstream.URL, token)
 	if !isError || !strings.Contains(text, "401 unauthorized") || strings.Contains(text, token) {
 		t.Fatalf("isError=%v text=%s", isError, text)
+	}
+}
+
+func TestSaveToolPostsAnswerCodeWhenSet(t *testing.T) {
+	const token = "clc_secret_value"
+	hint := false
+	var body []byte
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		body, err = io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"rec-1","request_id":"6ba7b810-9dad-11d1-80b4-00c04fd430c8","theme":"loops","questions":[],"created_at":"2026-11-13T00:00:00Z"}`))
+	}))
+	defer upstream.Close()
+
+	base := saveInput{
+		RequestID: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+		Theme:     "loops",
+		Questions: []saveQuestion{{
+			Type:     "free_text",
+			Prompt:   "why",
+			Answer:   saveAnswer{Text: "because", HintUsed: &hint, Code: "fmt.Println(1)"},
+			Feedback: saveFeedback{Understanding: "できた", Explanation: "ok"},
+		}},
+	}
+	if _, isError := callTool(t, upstream.URL, token, "save_learning_record", base); isError || !strings.Contains(string(body), `"code":"fmt.Println(1)"`) {
+		t.Fatalf("isError=%v body=%s", isError, body)
+	}
+
+	base.Questions[0].Answer.Code = ""
+	if _, isError := callTool(t, upstream.URL, token, "save_learning_record", base); isError || strings.Contains(string(body), `"code"`) {
+		t.Fatalf("省略時 isError=%v body=%s", isError, body)
 	}
 }
 
