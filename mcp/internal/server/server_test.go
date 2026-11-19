@@ -22,12 +22,12 @@ func TestListToolReturnsRecords(t *testing.T) {
 			t.Errorf("authorization = %q", r.Header.Get("Authorization"))
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"records":[{"id":"rec-1","theme":"loops","created_at":"2026-11-13T00:00:00Z"}],"has_more":false}`))
+		_, _ = w.Write([]byte(`{"records":[{"id":"rec-1","theme":"loops","repository":"owner/repo","created_at":"2026-11-13T00:00:00Z"}],"has_more":false}`))
 	}))
 	defer upstream.Close()
 
 	text, isError := callList(t, upstream.URL, token)
-	if isError || !strings.Contains(text, "loops") || strings.Contains(text, token) {
+	if isError || !strings.Contains(text, "loops") || !strings.Contains(text, "owner/repo") || strings.Contains(text, token) {
 		t.Fatalf("isError=%v text=%s", isError, text)
 	}
 }
@@ -118,6 +118,7 @@ func TestSaveToolPostsAnswerCodeWhenSet(t *testing.T) {
 func TestSaveToolPostsRecord(t *testing.T) {
 	const token = "clc_secret_value"
 	hint := false
+	requests := make(chan string, 2)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/learning-records" {
 			t.Errorf("request %s %s", r.Method, r.URL.Path)
@@ -125,12 +126,17 @@ func TestSaveToolPostsRecord(t *testing.T) {
 		if r.Header.Get("Content-Type") != "application/json" {
 			t.Errorf("content type %q", r.Header.Get("Content-Type"))
 		}
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		requests <- string(data)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"rec-1","request_id":"6ba7b810-9dad-11d1-80b4-00c04fd430c8","theme":"loops","questions":[],"created_at":"2026-11-13T00:00:00Z"}`))
+		_, _ = w.Write([]byte(`{"id":"rec-1","request_id":"6ba7b810-9dad-11d1-80b4-00c04fd430c8","theme":"loops","repository":"owner/repo","questions":[],"created_at":"2026-11-13T00:00:00Z"}`))
 	}))
 	defer upstream.Close()
 
-	text, isError := callTool(t, upstream.URL, token, "save_learning_record", saveInput{
+	input := saveInput{
 		RequestID: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
 		Theme:     "loops",
 		Questions: []saveQuestion{{
@@ -139,9 +145,21 @@ func TestSaveToolPostsRecord(t *testing.T) {
 			Answer:   saveAnswer{Text: "because", HintUsed: &hint},
 			Feedback: saveFeedback{Understanding: "できた", Explanation: "ok"},
 		}},
-	})
-	if isError || !strings.Contains(text, "rec-1") || strings.Contains(text, token) {
+	}
+	input.Repository = "owner/repo"
+	text, isError := callTool(t, upstream.URL, token, "save_learning_record", input)
+	if isError || !strings.Contains(text, "rec-1") || !strings.Contains(text, "owner/repo") || strings.Contains(text, token) {
 		t.Fatalf("isError=%v text=%s", isError, text)
+	}
+	if body := <-requests; !strings.Contains(body, `"repository":"owner/repo"`) {
+		t.Fatalf("repository missing in POST: %s", body)
+	}
+	input.Repository = ""
+	if _, isError := callTool(t, upstream.URL, token, "save_learning_record", input); isError {
+		t.Fatal("save tool failed with repository omitted")
+	}
+	if body := <-requests; strings.Contains(body, `"repository"`) {
+		t.Fatalf("omitted repository: %s", body)
 	}
 }
 
@@ -181,12 +199,12 @@ func TestGetToolReturnsRecord(t *testing.T) {
 			t.Errorf("request %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"` + id + `","request_id":"` + id + `","theme":"loops","questions":[],"created_at":"2026-11-14T00:00:00Z"}`))
+		_, _ = w.Write([]byte(`{"id":"` + id + `","request_id":"` + id + `","theme":"loops","repository":"owner/repo","questions":[],"created_at":"2026-11-14T00:00:00Z"}`))
 	}))
 	defer upstream.Close()
 
 	text, isError := callTool(t, upstream.URL, token, "get_learning_record", getInput{ID: id})
-	if isError || !strings.Contains(text, "loops") || strings.Contains(text, token) {
+	if isError || !strings.Contains(text, "loops") || !strings.Contains(text, "owner/repo") || strings.Contains(text, token) {
 		t.Fatalf("isError=%v text=%s", isError, text)
 	}
 }

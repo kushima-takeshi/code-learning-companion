@@ -4,7 +4,7 @@
 
 ## 何のためか
 
-使う人は、手元のAIツール。入力は `request_id`、`theme`、`questions`。出力は保存済みの `id`、`request_id`、`theme`、`questions`、`created_at`。新しいサーバーAPIは作らない。
+使う人は、手元のAIツール。入力は `request_id`、`theme`、`questions`。出力は保存済みの `id`、`request_id`、`theme`、`questions`、`created_at`。任意の `repository` は `owner/repo` 形式。値があるときだけ送信し、保存応答にも含まれる。新しいサーバーAPIは作らない。
 
 ## 状態の流れ
 
