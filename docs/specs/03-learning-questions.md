@@ -131,7 +131,7 @@ GoからのAI呼び出し、AI APIキー入力、アプリ独自の回答・チ�
 
 ## ブロック3の合意（2026-11-18）
 
-未実装。`skills/learning-companion/SKILL.md` は保存と振り返りまで書いた。Cursorからの実確認は未実施。ブロック3は未完了。
+完了。ユーザーが2026-11-18〜19にCursorアプリから手動確認済み。保存成功、停止中の失敗後の再送、`get_learning_record` での再取得。次はブロック4。
 
 - 最初のAIツールはCursor。
 - 原本は `skills/learning-companion/SKILL.md`。使うときは `~/.cursor/skills` へ一度シンボリックリンクを張る。レビューはリポジトリのファイルだけで行う。
