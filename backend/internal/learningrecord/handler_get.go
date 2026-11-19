@@ -16,12 +16,16 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
+	h.getRecord(w, r, token.UserID)
+}
+
+func (h *Handler) getRecord(w http.ResponseWriter, r *http.Request, userID string) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_record_id"})
 		return
 	}
-	record, err := h.service.Get(r.Context(), token.UserID, id.String())
+	record, err := h.service.Get(r.Context(), userID, id.String())
 	if errors.Is(err, sql.ErrNoRows) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "record_not_found"})
 		return

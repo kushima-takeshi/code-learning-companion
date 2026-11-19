@@ -33,14 +33,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
-	limit, offset, err := parseListQuery(r.URL.RawQuery)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_pagination"})
-		return
-	}
-	page, err := h.service.List(r.Context(), token.UserID, limit, offset)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+	page, ok := h.listPage(w, r, token.UserID)
+	if !ok {
 		return
 	}
 	// A successful GET query is the server-side connection check. HEAD has no list body.
@@ -56,6 +50,20 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, page)
+}
+
+func (h *Handler) listPage(w http.ResponseWriter, r *http.Request, userID string) (ListPage, bool) {
+	limit, offset, err := parseListQuery(r.URL.RawQuery)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_pagination"})
+		return ListPage{}, false
+	}
+	page, err := h.service.List(r.Context(), userID, limit, offset)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+		return ListPage{}, false
+	}
+	return page, true
 }
 
 func parseListQuery(raw string) (int, int, error) {
