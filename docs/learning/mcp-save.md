@@ -1,10 +1,11 @@
 # 学習記録の保存ツール
 
-仕様は [08](../specs/08-local-mcp.md)。一覧は [学習記録の一覧ツール](mcp-list.md)。詳細取得はまだ無い。
+仕様は [08](../specs/08-local-mcp.md)。一覧は [学習記録の一覧ツール](mcp-list.md)。保存したリポジトリ名は [学習記録の詳細取得ツール](mcp-get.md) でも返る。
 
 ## 何のためか
 
 使う人は、手元のAIツール。入力は `request_id`、`theme`、`questions`。出力は保存済みの `id`、`request_id`、`theme`、`questions`、`created_at`。任意の `repository` は `owner/repo` 形式。値があるときだけ送信し、保存応答にも含まれる。新しいサーバーAPIは作らない。
+スキルは GitHub の `origin` から `owner/repo` を取り出し、送信前の確認に表示する。取得できないか、確認で外した場合は `repository` を省いて保存する。
 
 ## 状態の流れ
 
