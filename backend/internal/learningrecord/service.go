@@ -46,7 +46,8 @@ func (s *Service) Save(ctx context.Context, userID string, input SaveInput) (Rec
 		return Record{}, err
 	}
 
-	if saved.Theme != input.Theme || !reflect.DeepEqual(saved.Questions, input.Questions) {
+	if saved.Theme != input.Theme || saved.Repository != input.Repository ||
+		!reflect.DeepEqual(saved.Questions, input.Questions) {
 		return Record{}, ErrRequestConflict
 	}
 

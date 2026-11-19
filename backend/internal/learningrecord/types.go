@@ -3,9 +3,10 @@ package learningrecord
 import "time"
 
 type SaveInput struct {
-	RequestID string     `json:"request_id"`
-	Theme     string     `json:"theme"`
-	Questions []Question `json:"questions"`
+	RequestID  string     `json:"request_id"`
+	Theme      string     `json:"theme"`
+	Repository string     `json:"repository,omitempty"`
+	Questions  []Question `json:"questions"`
 }
 
 type Question struct {
@@ -29,19 +30,21 @@ type Feedback struct {
 }
 
 type Record struct {
-	ID        string
-	UserID    string
-	RequestID string
-	Theme     string
-	Questions []Question
-	CreatedAt time.Time
+	ID         string
+	UserID     string
+	RequestID  string
+	Theme      string
+	Repository string
+	Questions  []Question
+	CreatedAt  time.Time
 }
 
 // RecordSummary omits answers, feedback and internal ownership information.
 type RecordSummary struct {
-	ID        string    `json:"id"`
-	Theme     string    `json:"theme"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         string    `json:"id"`
+	Theme      string    `json:"theme"`
+	Repository string    `json:"repository,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type ListPage struct {

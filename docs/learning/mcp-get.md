@@ -4,7 +4,7 @@
 
 ## 何のためか
 
-使う人は、手元のAIツール。入力は `id`。出力は保存済みの `id`、`request_id`、`theme`、`questions`、`created_at`。新しいサーバーAPIは作らない。
+使う人は、手元のAIツール。入力は `id`。出力は保存済みの `id`、`request_id`、`theme`、`questions`、`created_at`。リポジトリ名が保存されているときは `repository`（`owner/repo`）も返る。新しいサーバーAPIは作らない。
 
 ## 状態の流れ
 

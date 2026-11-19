@@ -2,10 +2,13 @@ package learningrecord
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
 )
+
+var repositoryName = regexp.MustCompile(`^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/[A-Za-z0-9_.-]+$`)
 
 func (input SaveInput) Validate() error {
 	var details []FieldError
@@ -21,6 +24,14 @@ func (input SaveInput) Validate() error {
 		details = append(details, FieldError{
 			Path: "theme",
 			Code: "required",
+		})
+	}
+
+	if repository := input.Repository; repository != "" &&
+		(!repositoryName.MatchString(repository) || strings.HasSuffix(repository, "/.") || strings.HasSuffix(repository, "/..")) {
+		details = append(details, FieldError{
+			Path: "repository",
+			Code: "invalid_value",
 		})
 	}
 

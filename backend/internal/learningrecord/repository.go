@@ -17,25 +17,27 @@ func (s *Service) insertRecord(
 	}
 
 	record := Record{
-		UserID:    userID,
-		RequestID: input.RequestID,
-		Theme:     input.Theme,
-		Questions: input.Questions,
+		UserID:     userID,
+		RequestID:  input.RequestID,
+		Theme:      input.Theme,
+		Repository: input.Repository,
+		Questions:  input.Questions,
 	}
 
 	err = s.db.QueryRowContext(
 		ctx,
 		`
 		INSERT INTO learning_records (
-			user_id, request_id, theme, questions
+			user_id, request_id, theme, questions, repository
 		)
-		VALUES ($1, $2, $3, $4)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at
 		`,
 		userID,
 		input.RequestID,
 		input.Theme,
 		string(questionsJSON),
+		input.Repository,
 	).Scan(&record.ID, &record.CreatedAt)
 	if err != nil {
 		return Record{}, fmt.Errorf("insert learning record: %w", err)

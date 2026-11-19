@@ -26,9 +26,10 @@ type listPage struct {
 }
 
 type listRecord struct {
-	ID        string `json:"id"`
-	Theme     string `json:"theme"`
-	CreatedAt string `json:"created_at"`
+	ID         string `json:"id"`
+	Theme      string `json:"theme"`
+	Repository string `json:"repository,omitempty"`
+	CreatedAt  string `json:"created_at"`
 }
 
 // New registers list, save, and get.
@@ -126,9 +127,10 @@ func formatDetails(details []fieldDetail) string {
 
 // saveInput matches learningrecord.SaveInput. hint_used is required by that API.
 type saveInput struct {
-	RequestID string         `json:"request_id"`
-	Theme     string         `json:"theme"`
-	Questions []saveQuestion `json:"questions"`
+	RequestID  string         `json:"request_id"`
+	Theme      string         `json:"theme"`
+	Repository string         `json:"repository,omitempty" jsonschema:"Repository name in owner/repo format"`
+	Questions  []saveQuestion `json:"questions"`
 }
 
 type saveQuestion struct {
@@ -150,11 +152,12 @@ type saveFeedback struct {
 }
 
 type savedRecord struct {
-	ID        string         `json:"id"`
-	RequestID string         `json:"request_id"`
-	Theme     string         `json:"theme"`
-	Questions []saveQuestion `json:"questions"`
-	CreatedAt string         `json:"created_at"`
+	ID         string         `json:"id"`
+	RequestID  string         `json:"request_id"`
+	Theme      string         `json:"theme"`
+	Repository string         `json:"repository,omitempty"`
+	Questions  []saveQuestion `json:"questions"`
+	CreatedAt  string         `json:"created_at"`
 }
 
 func saveLearningRecord(ctx context.Context, client *api.Client, in saveInput) (*mcp.CallToolResult, savedRecord, error) {

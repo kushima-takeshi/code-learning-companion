@@ -323,6 +323,7 @@ func newIntegrationDB(t *testing.T) *sql.DB {
 	for _, name := range []string{
 		"000002_auth.up.sql",
 		"000004_learning_records.up.sql",
+		"000007_learning_record_repository.up.sql",
 	} {
 		body, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if err != nil {
