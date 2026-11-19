@@ -17,7 +17,7 @@ func (s *Service) Get(
 	err := s.db.QueryRowContext(
 		ctx,
 		`
-		SELECT id, user_id, request_id, theme, questions, created_at
+		SELECT id, user_id, request_id, theme, questions, created_at, repository
 		FROM learning_records
 		WHERE id = $1 AND user_id = $2
 		`,
@@ -30,6 +30,7 @@ func (s *Service) Get(
 		&record.Theme,
 		&questionsJSON,
 		&record.CreatedAt,
+		&record.Repository,
 	)
 	if err != nil {
 		return Record{}, fmt.Errorf("get learning record: %w", err)
@@ -53,7 +54,7 @@ func (s *Service) getByRequestID(
 	err := s.db.QueryRowContext(
 		ctx,
 		`
-		SELECT id, user_id, request_id, theme, questions, created_at
+		SELECT id, user_id, request_id, theme, questions, created_at, repository
 		FROM learning_records
 		WHERE user_id = $1 AND request_id = $2
 		`,
@@ -66,6 +67,7 @@ func (s *Service) getByRequestID(
 		&record.Theme,
 		&questionsJSON,
 		&record.CreatedAt,
+		&record.Repository,
 	)
 	if err != nil {
 		return Record{}, fmt.Errorf("get record by request ID: %w", err)

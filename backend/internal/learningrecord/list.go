@@ -16,7 +16,7 @@ func (s *Service) List(ctx context.Context, userID string, limit, offset int) (L
 		return ListPage{}, ErrInvalidPagination
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, theme, created_at
+		SELECT id, theme, created_at, repository
 		FROM learning_records
 		WHERE user_id = $1
 		ORDER BY created_at DESC, id DESC
@@ -30,7 +30,7 @@ func (s *Service) List(ctx context.Context, userID string, limit, offset int) (L
 	page := ListPage{Records: make([]RecordSummary, 0, limit)}
 	for rows.Next() {
 		var summary RecordSummary
-		if err := rows.Scan(&summary.ID, &summary.Theme, &summary.CreatedAt); err != nil {
+		if err := rows.Scan(&summary.ID, &summary.Theme, &summary.CreatedAt, &summary.Repository); err != nil {
 			return ListPage{}, fmt.Errorf("scan learning record summary: %w", err)
 		}
 		if len(page.Records) == limit {
