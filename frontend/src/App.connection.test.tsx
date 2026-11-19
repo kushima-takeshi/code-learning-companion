@@ -50,6 +50,9 @@ function installFetch(session: { loggedIn: boolean }) {
       if (path === "/pr-snapshots") {
         return jsonResponse([])
       }
+      if (path === "/web/learning-records") {
+        return jsonResponse({ records: [], has_more: false })
+      }
       if (path === "/connection-tokens" && (!init || init.method === undefined)) {
         return jsonResponse([])
       }
