@@ -74,7 +74,11 @@ func main() {
 	if err := connectionTokenHandler.RegisterRoutes(mux, authHandler.RequireAuth, cfg.CORSOrigin); err != nil {
 		log.Fatalf("initialize connection token management: %v", err)
 	}
-	learningrecord.NewHandler(learningrecord.New(database)).RegisterRoutes(mux, connectionTokens)
+	learningRecordHandler := learningrecord.NewHandler(learningrecord.New(database))
+	learningRecordHandler.RegisterRoutes(mux, connectionTokens)
+	if err := learningRecordHandler.RegisterWebRoutes(mux, authHandler.RequireAPIAuth, cfg.CORSOrigin); err != nil {
+		log.Fatalf("initialize web learning records: %v", err)
+	}
 
 	mux.HandleFunc("GET /auth/github/login", authHandler.GitHubLogin)
 	mux.HandleFunc("GET /auth/github/callback", authHandler.GitHubCallback)

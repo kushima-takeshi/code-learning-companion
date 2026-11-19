@@ -16,6 +16,21 @@ func writeUnauthorized(w http.ResponseWriter) {
 }
 
 func (h *Handler) RequireAuth(next http.Handler) http.Handler {
+	return h.requireAuth(next, func(w http.ResponseWriter) {
+		http.Error(w, "failed to check session", http.StatusInternalServerError)
+	})
+}
+
+// RequireAPIAuth uses the same session check with JSON errors for API routes.
+func (h *Handler) RequireAPIAuth(next http.Handler) http.Handler {
+	return h.requireAuth(next, func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "internal_error"})
+	})
+}
+
+func (h *Handler) requireAuth(next http.Handler, writeFailure func(http.ResponseWriter)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("session")
 		if err != nil || cookie.Value == "" {
@@ -31,11 +46,7 @@ func (h *Handler) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 		if err != nil {
-			http.Error(
-				w,
-				"failed to check session",
-				http.StatusInternalServerError,
-			)
+			writeFailure(w)
 			return
 		}
 

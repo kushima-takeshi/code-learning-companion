@@ -39,8 +39,12 @@ func newListHTTP(t *testing.T) (*sql.DB, http.Handler, *connectiontoken.Service)
 	}
 	tokens := connectiontoken.New(db)
 	mux := http.NewServeMux()
-	NewHandler(New(db)).RegisterRoutes(mux, tokens)
+	records := NewHandler(New(db))
+	records.RegisterRoutes(mux, tokens)
 	login := auth.NewHandler(config.Config{}, auth.NewStore(db))
+	if err := records.RegisterWebRoutes(mux, login.RequireAPIAuth, "https://app.example"); err != nil {
+		t.Fatal(err)
+	}
 	if err := connectiontoken.NewHandler(tokens).RegisterRoutes(mux, login.RequireAuth, "https://app.example"); err != nil {
 		t.Fatal(err)
 	}
