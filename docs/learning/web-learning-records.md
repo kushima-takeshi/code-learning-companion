@@ -38,4 +38,4 @@ Webにログインした本人が、保存した学習記録をアプリで見�
 
 ## 未決
 
-このAPIに未決の契約はない。履歴の一覧・詳細画面は後続のPR4・PR5で扱う。
+このAPIに未決の契約はない。画面の挙動は [履歴一覧](learning-history-list.md) と [学習記録の詳細](learning-record-detail.md) を参照する。
