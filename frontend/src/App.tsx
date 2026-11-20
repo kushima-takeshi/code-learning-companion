@@ -1,11 +1,12 @@
 import type { SnapshotSummary } from "./api/prSnapshots"
 import { createSnapshot, listSnapshots } from "./api/prSnapshots"
 import type { CurrentUser } from "./api/auth"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { apiBaseURL, fetchHealth } from "./api/health"
 import { fetchMe, logout } from "./api/auth"
 import type { CreateSnapshotResponse } from "./api/prSnapshots"
 import { ConnectionSection } from "./connection/ConnectionSection"
+import { LearningHistorySection } from "./learning/LearningHistorySection"
 
 
 function App() {
@@ -24,6 +25,8 @@ function App() {
   const [importError, setImportError] = useState<string | null>(null)
   const [importResult, setImportResult] =
     useState<CreateSnapshotResponse | null>(null)
+
+  const handleSessionExpired = useCallback(() => setUser(null), [])
 
   useEffect(() => {
     let ignore = false
@@ -215,6 +218,11 @@ function App() {
           </button>
 
           {logoutError && <p role="alert">{logoutError}</p>}
+
+          <LearningHistorySection
+            key={user.id}
+            onSessionExpired={handleSessionExpired}
+          />
 
           <section>
             <h2>PR を取り込む</h2>
