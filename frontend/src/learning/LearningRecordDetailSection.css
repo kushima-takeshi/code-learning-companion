@@ -1,0 +1,17 @@
+.learning-record-detail {
+  text-align: left;
+}
+
+.learning-record-detail dd {
+  margin-inline-start: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.learning-record-detail pre {
+  overflow-x: auto;
+}
+
+.learning-record-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
