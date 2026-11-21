@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type MouseEventHandler } from "react"
 import {
   listLearningRecords,
   type LearningRecordSummary,
@@ -29,8 +29,10 @@ function groupRecords(records: LearningRecordSummary[]) {
 
 export function LearningHistorySection({
   onSessionExpired,
+  onNavigate,
 }: {
   onSessionExpired: () => void
+  onNavigate: MouseEventHandler<HTMLAnchorElement>
 }) {
   const [records, setRecords] = useState<LearningRecordSummary[]>([])
   const [request, setRequest] = useState({ offset: 0 })
@@ -84,7 +86,11 @@ export function LearningHistorySection({
           <ul>
             {group.map((record) => (
               <li key={record.id}>
-                <p>{record.theme}</p>
+                <p>
+                  <a href={`/learning-records/${encodeURIComponent(record.id)}`} onClick={onNavigate}>
+                    {record.theme}
+                  </a>
+                </p>
                 <p>
                   保存日時：
                   <time dateTime={record.created_at}>
