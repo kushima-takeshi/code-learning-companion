@@ -24,6 +24,17 @@ function installFetch(
             })
           : new Response(null, { status: 401 })
       case "/pr-snapshots":
+        return init?.method === "POST"
+          ? Response.json({
+              snapshot_id: "snapshot-1",
+              warning: "",
+              conversation_filename: null,
+              title: "PRのタイトル",
+              html_url: "https://github.com/owner/repo/pull/123",
+              head_sha: "commit-1",
+              changed_files: [],
+            })
+          : Response.json([])
       case "/connection-tokens":
         return Response.json([])
       case "/web/learning-records":
@@ -230,6 +241,43 @@ it("一覧から詳細を開き、記録の各項目と任意の回答コード�
   window.history.back()
   expect(await screen.findByRole("heading", { name: detailRecord.theme })).toBeInTheDocument()
   expect(window.location.pathname).toBe(detailPath)
+})
+
+it.each([
+  { name: "詳細から一覧に戻った後は以前の添付を送信しない", visitDetail: true },
+  { name: "取り込みフォームで選択中の添付は送信する", visitDetail: false },
+])("$name", async ({ visitDetail }) => {
+  const fetchMock = installFetch(
+    () => Response.json({ records: [record(detailId, "owner/repo")], has_more: false }),
+    true,
+    () => Response.json(detailRecord),
+  )
+  const user = userEvent.setup()
+  render(<App />)
+
+  const prURL = "https://github.com/owner/repo/pull/123"
+  const file = new File(["# テスト用の会話"], "conversation.md", { type: "text/markdown" })
+  const fileLabel = "会話の Markdown ファイル（任意）"
+  await user.type(await screen.findByLabelText("公開 PR の URL"), prURL)
+  await user.upload(screen.getByLabelText(fileLabel), file)
+
+  if (visitDetail) {
+    await user.click(await screen.findByRole("link", { name: detailRecord.theme }))
+    await user.click(await screen.findByRole("link", { name: "学習履歴へ戻る" }))
+    expect(screen.getByLabelText(fileLabel)).toHaveValue("")
+  }
+
+  await user.click(screen.getByRole("button", { name: "取り込む" }))
+  await screen.findByText("PR を保存しました")
+
+  const post = fetchMock.mock.calls.find(([input, init]) =>
+    new URL(input).pathname === "/pr-snapshots" && init?.method === "POST",
+  )
+  const body = post?.[1]?.body
+  expect(body).toBeInstanceOf(FormData)
+  const form = body as FormData
+  expect(form.get("url")).toBe(prURL)
+  expect(form.get("file")).toBe(visitDetail ? null : file)
 })
 
 it("詳細URLを直接開き、リポジトリのない記録では項目を省く", async () => {

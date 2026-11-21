@@ -49,7 +49,9 @@
 
 ## 次の一手
 
-PR5は `npm test`（55件）、`npm run lint`（既存警告1件）、`npm run build` が成功。Viteで詳細URLがHTMLを返すことも確認した。次はユーザーが実サーバーで、一覧から保存済み記録の問題・回答・解説を見返せることを確認する。
+PR5は `npm test`（57件）、`npm run lint`（既存警告1件）、`npm run build` が成功。Viteで詳細URLがHTMLを返すことも確認した。次はユーザーが実サーバーで、一覧から保存済み記録の問題・回答・解説を見返せることを確認する。
+
+PR取り込みは送信時のファイル入力欄から添付を読み、詳細画面から戻ったときの古い添付の送信を防ぐ。[Issue #81](https://github.com/kushima-takeshi/code-learning-companion/issues/81)
 
 [PR #28](https://github.com/kushima-takeshi/code-learning-companion/pull/28)、[PR #29](https://github.com/kushima-takeshi/code-learning-companion/pull/29)、[PR #30](https://github.com/kushima-takeshi/code-learning-companion/pull/30) はいずれも main へマージ済み。保存・詳細APIはユーザー確認済み。再接続サーバー処理（`7c0d642` と `47ab00c`）もマージ済みで、文書の解説待ちにはしない。接続一覧の未完了トークンは上の節で実装・実DB検証済み。接続画面の追加から作り直すまでは実装済み。再接続の画面も実装済み。ローカルMCPの3ツールは2026-11-16に実プロセスで確認済み。1つのAIツール（Cursor）からの保存・再取得と本人分離は手動確認済み。定期整理の削除は実装・実DB検証済みで、起動直後に1回実行し、その後は24時間ごと。全体ブロック2は完了。全体ブロック3は完了。2026-11-10に開始から完了、2026-11-12にやり直しを実Goサーバーで確認した。使えない行の409は2026-11-12に実Goサーバーで確認済み。期限切れ操作の新トークンの401と complete の409 `reconnection_conflict` は2026-11-18に実サーバーで確認済み。旧トークンの一覧は200。取り込み前のPR範囲と次の一手の原文は [2026-11の記録](archive/current-work-2026-11.md) に残した。
 

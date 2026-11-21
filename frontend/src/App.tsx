@@ -1,7 +1,7 @@
 import type { SnapshotSummary } from "./api/prSnapshots"
 import { createSnapshot, listSnapshots } from "./api/prSnapshots"
 import type { CurrentUser } from "./api/auth"
-import { useCallback, useEffect, useState, type MouseEvent } from "react"
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react"
 import { apiBaseURL, fetchHealth } from "./api/health"
 import { fetchMe, logout } from "./api/auth"
 import type { CreateSnapshotResponse } from "./api/prSnapshots"
@@ -21,7 +21,7 @@ function App() {
   const [snapshotsLoading, setSnapshotsLoading] = useState(false)
   const [snapshotsError, setSnapshotsError] = useState<string | null>(null)
   const [prURL, setPrURL] = useState("")
-  const [conversationFile, setConversationFile] = useState<File | null>(null)
+  const conversationFileInput = useRef<HTMLInputElement>(null)
   const [importPending, setImportPending] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importResult, setImportResult] =
@@ -139,7 +139,7 @@ function App() {
     }
   }, [user, showHome])
 
-  async function handleImport() {
+  async function handleImport(conversationFile: File | null) {
     setImportPending(true)
     setImportError(null)
     setImportResult(null)
@@ -274,7 +274,7 @@ function App() {
             <form
               onSubmit={(event) => {
                 event.preventDefault()
-                handleImport()
+                void handleImport(conversationFileInput.current?.files?.[0] ?? null)
               }}
             >
               <div>
@@ -296,9 +296,7 @@ function App() {
                 <input
                   id="conversation-file"
                   type="file"
-                  onChange={(event) =>
-                    setConversationFile(event.target.files?.[0] ?? null)
-                  }
+                  ref={conversationFileInput}
                 />
               </div>
               <button type="submit" disabled={importPending}>
