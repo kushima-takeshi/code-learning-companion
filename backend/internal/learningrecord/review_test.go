@@ -84,7 +84,7 @@ func TestWebDueReviewsHTTPIntegration(t *testing.T) {
 	insertReviewRecord(t, db, higherID, owner, atBoundary)
 	insertReviewRecord(t, db, overdueID, owner, atBoundary.Add(-time.Hour))
 	const repository = "owner/repo"
-	if _, err := db.Exec("UPDATE learning_records SET repository = $1 WHERE id = $2", repository, overdueID); err != nil {
+	if _, err := db.Exec("UPDATE learning_records SET repository = $1, theme = $2 WHERE id = $3", repository, "React", overdueID); err != nil {
 		t.Fatal(err)
 	}
 	insertReviewRecord(t, db, uuid.NewString(), owner, atBoundary.Add(time.Microsecond))
@@ -109,7 +109,7 @@ func TestWebDueReviewsHTTPIntegration(t *testing.T) {
 		Records []map[string]json.RawMessage `json:"records"`
 	}](t, response)
 	want := []dueReview{
-		{ID: overdueID, Theme: "Go", Repository: repository, Stage: 1, DueAt: now.Add(-time.Hour)},
+		{ID: overdueID, Theme: "React", Repository: repository, Stage: 1, DueAt: now.Add(-time.Hour)},
 		{ID: stageTwoID, Theme: "Go", Stage: 2, DueAt: stageTwoDue},
 		{ID: lowerID, Theme: "Go", Stage: 1, DueAt: now},
 		{ID: higherID, Theme: "Go", Stage: 1, DueAt: now},
