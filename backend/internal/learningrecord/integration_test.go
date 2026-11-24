@@ -280,7 +280,7 @@ func TestGetByRequestIDIntegration(t *testing.T) {
 	}
 }
 
-func newIntegrationDB(t *testing.T) *sql.DB {
+func newIntegrationDB(t *testing.T, extraMigrations ...string) *sql.DB {
 	t.Helper()
 
 	databaseURL := os.Getenv("LEARNINGRECORD_TEST_DATABASE_URL")
@@ -320,11 +320,12 @@ func newIntegrationDB(t *testing.T) *sql.DB {
 	db := stdlib.OpenDB(*cfg)
 	t.Cleanup(func() { db.Close() })
 
-	for _, name := range []string{
+	migrations := []string{
 		"000002_auth.up.sql",
 		"000004_learning_records.up.sql",
 		"000007_learning_record_repository.up.sql",
-	} {
+	}
+	for _, name := range append(migrations, extraMigrations...) {
 		body, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 		if err != nil {
 			t.Fatal(err)

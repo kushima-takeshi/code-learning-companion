@@ -21,7 +21,7 @@ Webにログインした本人が、保存した学習記録をアプリで見�
 
 | 関数 | 目的 | 入力 | 出力 | 更新するもの |
 |---|---|---|---|---|
-| `RegisterWebRoutes` | Web用の読み取り入口を登録 | mux、認証ミドルウェア、信頼するOrigin | 登録エラーまたはnil | muxのルート |
+| `RegisterWebRoutes` | Web用の学習記録・復習の入口を登録 | mux、認証ミドルウェア、信頼するOrigin | 登録エラーまたはnil | muxのルート |
 | `RequireAPIAuth` | 共通のセッション照合を使い、DB障害をJSONで通知 | session Cookie、次のハンドラ | 本人を含むリクエスト、または401・500 | リクエストのコンテキスト |
 | `FindUserByTokenHash` | セッションから本人を調べる | Cookieのハッシュ | 有効なセッションのユーザー、またはエラー | なし |
 | `listWeb` / `listPage` | ページ指定を検証し、本人の一覧を返す | 本人ID、`limit`、`offset` | `ListPage` のJSON、または400・500 | なし |
