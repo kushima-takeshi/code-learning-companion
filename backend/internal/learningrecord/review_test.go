@@ -21,20 +21,6 @@ func TestFirstReviewTiming(t *testing.T) {
 	if got := firstReviewDueAt(createdAt); !got.Equal(deadline) {
 		t.Fatalf("due at = %s, want %s", got, deadline)
 	}
-
-	// Each supplied time represents the server clock at query time.
-	for _, tc := range []struct {
-		now time.Time
-		due bool
-	}{
-		{deadline.Add(-time.Nanosecond), false},
-		{deadline, true},
-		{deadline.Add(time.Nanosecond), true},
-	} {
-		if got := !createdAt.After(firstReviewCutoff(tc.now)); got != tc.due {
-			t.Errorf("due at clock time %s = %t, want %t", tc.now, got, tc.due)
-		}
-	}
 }
 
 func TestWebDueReviewsHTTPIntegration(t *testing.T) {
@@ -49,24 +35,27 @@ func TestWebDueReviewsHTTPIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	insert := func(userID string, createdAt time.Time) string {
+	insert := func(id, userID string, createdAt time.Time) {
 		t.Helper()
-		var id string
-		err := db.QueryRow(`
-			INSERT INTO learning_records (user_id, request_id, theme, questions, created_at)
-			VALUES ($1, $2, 'Go', '[]', $3)
-			RETURNING id
-		`, userID, uuid.NewString(), createdAt).Scan(&id)
+		_, err := db.Exec(`
+			INSERT INTO learning_records (id, user_id, request_id, theme, questions, created_at)
+			VALUES ($1, $2, $3, 'Go', '[]', $4)
+		`, id, userID, uuid.NewString(), createdAt)
 		if err != nil {
 			t.Fatal(err)
 		}
-		return id
 	}
 	atBoundary := now.Add(-72 * time.Hour)
-	exact := insert(owner, atBoundary)
-	overdue := insert(owner, atBoundary.Add(-time.Hour))
-	insert(owner, atBoundary.Add(time.Microsecond))
-	insert(other, atBoundary)
+	const (
+		lowerID   = "00000000-0000-4000-8000-000000000001"
+		higherID  = "00000000-0000-4000-8000-000000000002"
+		overdueID = "00000000-0000-4000-8000-000000000003"
+	)
+	insert(lowerID, owner, atBoundary)
+	insert(higherID, owner, atBoundary)
+	insert(overdueID, owner, atBoundary.Add(-time.Hour))
+	insert(uuid.NewString(), owner, atBoundary.Add(time.Microsecond))
+	insert(uuid.NewString(), other, atBoundary)
 
 	const path = "/web/reviews/due"
 	checkListError(t, listRequest(mux, http.MethodGet, path, "", nil), http.StatusUnauthorized, "unauthorized")
@@ -78,8 +67,9 @@ func TestWebDueReviewsHTTPIntegration(t *testing.T) {
 	cookie := learningSession(t, db, owner, expires)
 	got := decodeWebRecordJSON[response](t, listRequest(mux, http.MethodGet, path, "", cookie))
 	want := []dueReview{
-		{ID: overdue, Stage: 1, DueAt: now.Add(-time.Hour)},
-		{ID: exact, Stage: 1, DueAt: now},
+		{ID: overdueID, Stage: 1, DueAt: now.Add(-time.Hour)},
+		{ID: lowerID, Stage: 1, DueAt: now},
+		{ID: higherID, Stage: 1, DueAt: now},
 	}
 	if len(got.Records) != len(want) {
 		t.Fatalf("records = %+v, want %+v", got.Records, want)
