@@ -1,12 +1,13 @@
 import type { SnapshotSummary } from "./api/prSnapshots"
 import { createSnapshot, listSnapshots } from "./api/prSnapshots"
 import type { CurrentUser } from "./api/auth"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react"
 import { apiBaseURL, fetchHealth } from "./api/health"
 import { fetchMe, logout } from "./api/auth"
 import type { CreateSnapshotResponse } from "./api/prSnapshots"
 import { ConnectionSection } from "./connection/ConnectionSection"
 import { LearningHistorySection } from "./learning/LearningHistorySection"
+import { LearningRecordDetailSection } from "./learning/LearningRecordDetailSection"
 
 
 function App() {
@@ -20,13 +21,31 @@ function App() {
   const [snapshotsLoading, setSnapshotsLoading] = useState(false)
   const [snapshotsError, setSnapshotsError] = useState<string | null>(null)
   const [prURL, setPrURL] = useState("")
-  const [conversationFile, setConversationFile] = useState<File | null>(null)
+  const conversationFileInput = useRef<HTMLInputElement>(null)
   const [importPending, setImportPending] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importResult, setImportResult] =
     useState<CreateSnapshotResponse | null>(null)
+  const [pathname, setPathname] = useState(() => window.location.pathname)
+  const detailId = pathname.match(/^\/learning-records\/([^/]+)\/?$/)?.[1]
+  const showHome = !authLoading && !authError && user !== null && detailId === undefined
 
   const handleSessionExpired = useCallback(() => setUser(null), [])
+
+  useEffect(() => {
+    const syncPathname = () => setPathname(window.location.pathname)
+    window.addEventListener("popstate", syncPathname)
+    return () => window.removeEventListener("popstate", syncPathname)
+  }, [])
+
+  function handleNavigate(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey ||
+        event.ctrlKey || event.shiftKey || event.altKey) return
+
+    event.preventDefault()
+    window.history.pushState(null, "", event.currentTarget.href)
+    setPathname(window.location.pathname)
+  }
 
   useEffect(() => {
     let ignore = false
@@ -88,6 +107,7 @@ function App() {
       setSnapshotsError(null)
       return
     }
+    if (!showHome) return
 
     let ignore = false
 
@@ -117,9 +137,9 @@ function App() {
     return () => {
       ignore = true
     }
-  }, [user])
+  }, [user, showHome])
 
-  async function handleImport() {
+  async function handleImport(conversationFile: File | null) {
     setImportPending(true)
     setImportError(null)
     setImportResult(null)
@@ -219,8 +239,32 @@ function App() {
 
           {logoutError && <p role="alert">{logoutError}</p>}
 
+          {detailId !== undefined && (
+            <LearningRecordDetailSection
+              key={`${user.id}:${detailId}`}
+              encodedRecordId={detailId}
+              onNavigate={handleNavigate}
+              onSessionExpired={handleSessionExpired}
+            />
+          )}
+        </div>
+      ) : (
+        <div>
+          {new URLSearchParams(window.location.search).has("auth_error") && (
+            <p role="alert">ログインできませんでした</p>
+          )}
+
+          <a href={`${apiBaseURL()}/auth/github/login`}>
+            GitHubでログイン
+          </a>
+        </div>
+      )}
+
+      {showHome && (
+        <div>
           <LearningHistorySection
             key={user.id}
+            onNavigate={handleNavigate}
             onSessionExpired={handleSessionExpired}
           />
 
@@ -230,7 +274,7 @@ function App() {
             <form
               onSubmit={(event) => {
                 event.preventDefault()
-                handleImport()
+                void handleImport(conversationFileInput.current?.files?.[0] ?? null)
               }}
             >
               <div>
@@ -252,9 +296,7 @@ function App() {
                 <input
                   id="conversation-file"
                   type="file"
-                  onChange={(event) =>
-                    setConversationFile(event.target.files?.[0] ?? null)
-                  }
+                  ref={conversationFileInput}
                 />
               </div>
               <button type="submit" disabled={importPending}>
@@ -340,16 +382,6 @@ function App() {
             )}
           </section>
           <ConnectionSection />
-        </div>
-      ) : (
-        <div>
-          {new URLSearchParams(window.location.search).has("auth_error") && (
-            <p role="alert">ログインできませんでした</p>
-          )}
-
-          <a href={`${apiBaseURL()}/auth/github/login`}>
-            GitHubでログイン
-          </a>
         </div>
       )}
     </main>
