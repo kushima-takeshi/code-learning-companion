@@ -20,7 +20,8 @@ func (h *Handler) saveReview(w http.ResponseWriter, r *http.Request, userID stri
 	}
 
 	var input *struct {
-		Result string `json:"result"`
+		Result string          `json:"result"`
+		Stage  json.RawMessage `json:"stage"`
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxReviewBodyBytes))
 	decoder.DisallowUnknownFields()
@@ -35,7 +36,13 @@ func (h *Handler) saveReview(w http.ResponseWriter, r *http.Request, userID stri
 		return
 	}
 
-	stage, err := h.service.saveReview(r.Context(), userID, id.String(), input.Result)
+	var requestedStage int
+	if err := json.Unmarshal(input.Stage, &requestedStage); err != nil || requestedStage < 1 || requestedStage > 3 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_stage"})
+		return
+	}
+
+	stage, err := h.service.saveReview(r.Context(), userID, id.String(), input.Result, requestedStage)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "record_not_found"})

@@ -65,9 +65,9 @@ func (s *Service) listDueReviews(ctx context.Context, userID string) ([]dueRevie
 	return records, nil
 }
 
-func (s *Service) saveReview(ctx context.Context, userID, recordID, result string) (int, error) {
-	// A single statement selects and inserts the stage. If a concurrent
-	// insert wins that stage, the conflict must not advance this request.
+func (s *Service) saveReview(ctx context.Context, userID, recordID, result string, requestedStage int) (int, error) {
+	// Insert only when the requested stage is the first missing stage.
+	// A concurrent insert for that stage leaves this request with no saved row.
 	const query = `
 		WITH owned_record AS (
 			SELECT id, user_id FROM learning_records
@@ -78,13 +78,14 @@ func (s *Service) saveReview(ctx context.Context, userID, recordID, result strin
 			SELECT record.id, record.user_id, next.stage, $3, $4
 			FROM owned_record AS record
 			CROSS JOIN LATERAL (` + nextReviewStage + `) AS next
+			WHERE next.stage = $5
 			ON CONFLICT (learning_record_id, stage) DO NOTHING
 			RETURNING stage
 		)
 		SELECT COALESCE((SELECT stage FROM saved), 0) FROM owned_record
 	`
 	var stage int
-	if err := s.db.QueryRowContext(ctx, query, recordID, userID, result, s.now()).Scan(&stage); err != nil {
+	if err := s.db.QueryRowContext(ctx, query, recordID, userID, result, s.now(), requestedStage).Scan(&stage); err != nil {
 		return 0, fmt.Errorf("save review: %w", err)
 	}
 	if stage == 0 {

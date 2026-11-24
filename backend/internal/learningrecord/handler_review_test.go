@@ -3,6 +3,7 @@ package learningrecord
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -65,10 +66,14 @@ func TestWebSaveReviewProgressHTTPIntegration(t *testing.T) {
 		now = deadline.Add(time.Hour)
 		for index, id := range ids {
 			result := results[(index+i)%len(results)]
-			res := postReview(t.Context(), handler, id, `{"result":"`+result+`"}`, "https://app.example", cookie)
+			body := fmt.Sprintf(`{"result":%q,"stage":%d}`, result, stage)
+			res := postReview(t.Context(), handler, id, body, "https://app.example", cookie)
 			var reply struct{ Stage int }
 			if res.Code != http.StatusCreated || json.Unmarshal(res.Body.Bytes(), &reply) != nil || reply.Stage != stage {
 				t.Fatalf("save stage %d = %d %s", stage, res.Code, res.Body)
+			}
+			if stage == 1 && index == 0 {
+				checkListError(t, postReview(t.Context(), handler, id, body, "https://app.example", cookie), 409, "review_conflict")
 			}
 			var savedResult string
 			var savedAt time.Time
@@ -88,7 +93,7 @@ func TestWebSaveReviewProgressHTTPIntegration(t *testing.T) {
 	if got := getDue(); got == nil || len(got) != 0 {
 		t.Fatalf("after all deadlines: records = %+v, want []", got)
 	}
-	checkListError(t, postReview(t.Context(), handler, ids[0], `{"result":"できた"}`, "https://app.example", cookie), 409, "review_conflict")
+	checkListError(t, postReview(t.Context(), handler, ids[0], `{"result":"できた","stage":3}`, "https://app.example", cookie), 409, "review_conflict")
 }
 
 func TestWebSaveReviewErrorsHTTPIntegration(t *testing.T) {
@@ -100,7 +105,7 @@ func TestWebSaveReviewErrorsHTTPIntegration(t *testing.T) {
 	cookie := learningSession(t, db, owner, now.Add(time.Hour))
 	otherCookie := learningSession(t, db, other, now.Add(time.Hour))
 	handler := newReviewHTTP(t, db, func() time.Time { return now })
-	const valid = `{"result":"できた"}`
+	const valid = `{"result":"できた","stage":1}`
 	for _, tc := range []struct {
 		name, id, body, origin string
 		cookie                 *http.Cookie
@@ -114,9 +119,14 @@ func TestWebSaveReviewErrorsHTTPIntegration(t *testing.T) {
 		{"broken JSON", id, "{", "https://app.example", cookie, 400, "invalid_json"},
 		{"extra JSON", id, valid + " {}", "https://app.example", cookie, 400, "invalid_json"},
 		{"null JSON", id, "null", "https://app.example", cookie, 400, "invalid_json"},
-		{"stage is server-controlled", id, `{"result":"できた","stage":2}`, "https://app.example", cookie, 400, "invalid_json"},
-		{"unknown result", id, `{"result":"成功"}`, "https://app.example", cookie, 400, "invalid_result"},
-		{"missing result", id, "{}", "https://app.example", cookie, 400, "invalid_result"},
+		{"unknown field", id, `{"result":"できた","stage":1,"unexpected":true}`, "https://app.example", cookie, 400, "invalid_json"},
+		{"unknown result", id, `{"result":"成功","stage":1}`, "https://app.example", cookie, 400, "invalid_result"},
+		{"missing result", id, `{"stage":1}`, "https://app.example", cookie, 400, "invalid_result"},
+		{"missing stage", id, `{"result":"できた"}`, "https://app.example", cookie, 400, "invalid_stage"},
+		{"stage below range", id, `{"result":"できた","stage":0}`, "https://app.example", cookie, 400, "invalid_stage"},
+		{"stage above range", id, `{"result":"できた","stage":4}`, "https://app.example", cookie, 400, "invalid_stage"},
+		{"non-integer stage", id, `{"result":"できた","stage":1.5}`, "https://app.example", cookie, 400, "invalid_stage"},
+		{"skips stage", id, `{"result":"できた","stage":2}`, "https://app.example", cookie, 409, "review_conflict"},
 		{"cross-origin", id, valid, "https://other.example", cookie, 403, "cross_origin_forbidden"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -159,8 +169,9 @@ func TestWebSaveReviewConflictHTTPIntegration(t *testing.T) {
 	}
 
 	response := make(chan *httptest.ResponseRecorder, 1)
+	const stageOneBody = `{"result":"できた","stage":1}`
 	go func() {
-		response <- postReview(ctx, handler, id, `{"result":"できた"}`, "https://app.example", cookie)
+		response <- postReview(ctx, handler, id, stageOneBody, "https://app.example", cookie)
 	}()
 
 	ticker := time.NewTicker(10 * time.Millisecond)
@@ -196,12 +207,14 @@ func TestWebSaveReviewConflictHTTPIntegration(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}
+	// Retrying the same stage after commit must not write the next stage.
+	checkListError(t, postReview(ctx, handler, id, stageOneBody, "https://app.example", cookie), 409, "review_conflict")
 	var count int
 	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM learning_record_reviews").Scan(&count); err != nil || count != 1 {
-		t.Fatalf("reviews after conflict = %d, err = %v", count, err)
+		t.Fatalf("reviews after conflict and retry = %d, err = %v", count, err)
 	}
-	// A fresh request after the conflict sees the next stage, even before its deadline.
-	res := postReview(ctx, handler, id, `{"result":"できた"}`, "https://app.example", cookie)
+	// A request specifying the next stage succeeds even before its deadline.
+	res := postReview(ctx, handler, id, `{"result":"できた","stage":2}`, "https://app.example", cookie)
 	if res.Code != http.StatusCreated || strings.TrimSpace(res.Body.String()) != `{"stage":2}` {
 		t.Fatalf("new save after stage 1 = %d %s", res.Code, res.Body)
 	}
