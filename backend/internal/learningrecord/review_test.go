@@ -2,6 +2,7 @@ package learningrecord
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -32,8 +33,9 @@ func TestFirstReviewTiming(t *testing.T) {
 	service := New(db)
 	service.now = func() time.Time { return deadline }
 	got, err := service.listDueReviews(t.Context(), owner)
-	if err != nil || len(got) != 1 || got[0].ID != id || got[0].Stage != 1 || !got[0].DueAt.Equal(deadline) {
-		t.Fatalf("due reviews = %+v, err = %v, want stage 1 due at %s", got, err, deadline)
+	if err != nil || len(got) != 1 || got[0].ID != id || got[0].Theme != "Go" ||
+		got[0].Repository != "" || got[0].Stage != 1 || !got[0].DueAt.Equal(deadline) {
+		t.Fatalf("due reviews = %+v, err = %v, want Go without repository at stage 1 due at %s", got, err, deadline)
 	}
 }
 
@@ -81,6 +83,10 @@ func TestWebDueReviewsHTTPIntegration(t *testing.T) {
 	insertReviewRecord(t, db, lowerID, owner, atBoundary)
 	insertReviewRecord(t, db, higherID, owner, atBoundary)
 	insertReviewRecord(t, db, overdueID, owner, atBoundary.Add(-time.Hour))
+	const repository = "owner/repo"
+	if _, err := db.Exec("UPDATE learning_records SET repository = $1 WHERE id = $2", repository, overdueID); err != nil {
+		t.Fatal(err)
+	}
 	insertReviewRecord(t, db, uuid.NewString(), owner, atBoundary.Add(time.Microsecond))
 	insertReviewRecord(t, db, uuid.NewString(), other, atBoundary)
 	stageTwoID := uuid.NewString()
@@ -97,20 +103,26 @@ func TestWebDueReviewsHTTPIntegration(t *testing.T) {
 
 	expires := time.Now().Add(time.Hour)
 	cookie := learningSession(t, db, owner, expires)
-	got := decodeWebRecordJSON[dueReviewsResponse](t, listRequest(mux, http.MethodGet, dueReviewsPath, "", cookie))
+	response := listRequest(mux, http.MethodGet, dueReviewsPath, "", cookie)
+	got := decodeWebRecordJSON[dueReviewsResponse](t, response)
+	fields := decodeWebRecordJSON[struct {
+		Records []map[string]json.RawMessage `json:"records"`
+	}](t, response)
 	want := []dueReview{
-		{ID: overdueID, Stage: 1, DueAt: now.Add(-time.Hour)},
-		{ID: stageTwoID, Stage: 2, DueAt: stageTwoDue},
-		{ID: lowerID, Stage: 1, DueAt: now},
-		{ID: higherID, Stage: 1, DueAt: now},
+		{ID: overdueID, Theme: "Go", Repository: repository, Stage: 1, DueAt: now.Add(-time.Hour)},
+		{ID: stageTwoID, Theme: "Go", Stage: 2, DueAt: stageTwoDue},
+		{ID: lowerID, Theme: "Go", Stage: 1, DueAt: now},
+		{ID: higherID, Theme: "Go", Stage: 1, DueAt: now},
 	}
 	if len(got.Records) != len(want) {
 		t.Fatalf("records = %+v, want %+v", got.Records, want)
 	}
 	for i, record := range got.Records {
-		if record.ID != want[i].ID || record.Stage != want[i].Stage || !record.DueAt.Equal(want[i].DueAt) {
+		if record.ID != want[i].ID || record.Theme != want[i].Theme || record.Repository != want[i].Repository ||
+			record.Stage != want[i].Stage || !record.DueAt.Equal(want[i].DueAt) {
 			t.Errorf("records[%d] = %+v, want %+v", i, record, want[i])
 		}
+		checkWebRepository(t, fields.Records[i], want[i].Repository)
 	}
 	emptyCookie := learningSession(t, db, empty, expires)
 	got = decodeWebRecordJSON[dueReviewsResponse](t, listRequest(mux, http.MethodGet, dueReviewsPath, "", emptyCookie))

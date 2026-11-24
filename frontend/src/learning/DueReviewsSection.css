@@ -1,0 +1,22 @@
+.due-reviews {
+  margin-block: 1.25rem;
+}
+
+.due-reviews-list {
+  margin: 0 auto;
+  padding-inline: 2rem 1rem;
+  max-width: 40rem;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.due-reviews-list li {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.due-review-timing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}

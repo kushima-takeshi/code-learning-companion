@@ -12,6 +12,26 @@ export type LearningRecordPage = {
   has_more: boolean
 }
 
+export type DueReview = Pick<LearningRecordSummary, "id" | "theme" | "repository"> & {
+  stage: number
+  due_at: string
+}
+
+export async function listDueReviews(signal: AbortSignal): Promise<DueReview[] | null> {
+  const response = await fetch(`${apiBaseURL()}/web/reviews/due`, {
+    credentials: "include",
+    signal,
+  })
+
+  if (response.status === 401) return null
+  if (!response.ok) {
+    throw new Error(`failed to list due reviews: ${response.status}`)
+  }
+
+  const body = (await response.json()) as { records: DueReview[] }
+  return body.records
+}
+
 export type LearningRecordDetail = LearningRecordSummary & {
   request_id: string
   questions: {
