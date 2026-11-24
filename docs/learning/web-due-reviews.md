@@ -1,36 +1,34 @@
-# 初回の復習期限一覧
+# 復習期限一覧
 
-契約は[仕様04](../specs/04-review.md#初回の期限到来一覧)。セッション認証の仕組みは[学習記録のWeb API](web-learning-records.md)と共通。
+契約は[仕様04](../specs/04-review.md#期限到来一覧)。初回だけを扱った[PR1時点のノート](../archive/web-due-reviews-stage1.md)は履歴に残す。
 
 ## 何のためか
 
-ログインした本人が、いま初回復習できる記録を `GET /web/reviews/due` で取得する。たとえば11月24日16時35分（日本時間）に保存した記録は、11月27日16時35分ちょうどから一覧に入り、記録ID、`stage: 1`、`due_at` が返る。
+`GET /web/reviews/due` で、本人の学習記録のうち次の段階を復習できるものを取得する。11月24日16時35分に保存した記録は、結果がなければ11月27日16時35分から段階1が表示される。段階1を保存すると、次は12月8日16時35分から段階2が表示される。
 
 ## 状態の流れ
 
-保存される状態の更新はない。初回期限に達したかをリクエストごとに判定する。
+一覧の取得による状態の更新はない。段階を進める操作は[復習結果の保存](web-review-results.md)を参照する。
 
 ## 呼び出しの流れ
 
-1. `cmd/server/main.go:main` → `learningrecord/handler_web.go:RegisterWebRoutes`。Webセッション認証と `CrossOriginProtection` の内側にルートを登録する。未ログインは401。
-2. `learningrecord/handler_web.go:listDueReviews` → `learningrecord/review.go:Service.listDueReviews`。認証済みの本人IDを渡す。
-3. `learningrecord/review.go:Service.listDueReviews` → `learningrecord/review.go:firstReviewCutoff`。時計を1回読み、現在から72時間前を求める。SQLは `user_id = $1 AND created_at <= $2` で、本人かつ保存から72時間以上経過した記録のIDと保存日時を読む。
-4. `learningrecord/review.go:Service.listDueReviews` → `learningrecord/review.go:firstReviewDueAt`。SQLが古い順に返した各保存日時に72時間を加える。ハンドラはその順序で `records` を返す。0件なら空配列、読み取りに失敗したら500 `internal_error`。
+1. `cmd/server/main.go:main` → `learningrecord/handler_web.go:RegisterWebRoutes`。Webセッション認証とオリジン保護の内側に登録する。
+2. `learningrecord/handler_web.go:listDueReviews` → `learningrecord/review.go:Service.listDueReviews`。認証済みの本人IDを渡す。SQLは保存から72時間以上経過した本人の記録を対象にする。
+3. SQLの `nextReviewStage` が `learning_record_reviews` を参照し、結果のない最小の段階を選ぶ。段階が残る記録について、保存日時から72・336・720時間のいずれかを足した期限を計算する。
+4. 現在時刻以前の期限を、期限の古い順、同時刻ならID昇順で返す。ハンドラは0件なら空配列、読み取りに失敗したら500 `internal_error` を返す。
 
 ## 関数ごとの表
 
 | 関数 | 目的 | 入力 | 出力 | 更新するもの |
 |---|---|---|---|---|
 | `listDueReviews`（ハンドラ） | 本人の復習期限をJSONで返す | リクエスト、本人ID | 200と一覧、または500 | なし |
-| `Service.listDueReviews` | 期限を迎えた本人の記録を読む | 本人ID、サービスの時計 | 記録ID、段階、期限の一覧、またはエラー | なし |
-| `firstReviewCutoff` | 期限に達した最新の保存日時を求める | 現在時刻 | 現在時刻の72時間前 | なし |
-| `firstReviewDueAt` | 初回の復習日時を求める | 保存日時 | 保存日時の72時間後 | なし |
+| `Service.listDueReviews` | 期限が来た本人の記録を読む | 本人ID、サービスの時計 | 記録ID、段階、期限の一覧、またはエラー | なし |
 
 ## なぜそうしたか
 
-- `created_at + 72時間 <= 現在` と同じ意味の `created_at <= 現在 - 72時間` で絞る。SQLの列に日時関数を掛けず、既存の所有者・保存日時のインデックスを使える。
-- 一覧が必要とするIDと日時だけを読み、問題・回答・フィードバックは既存の詳細APIで取得できる。
+- 最も早い期限の条件 `created_at <= 現在 - 72時間` で先に絞ると、本人IDと保存日時の既存インデックスを利用できる。
+- SQLで時間を足すため、夏時間をまたいでも実時間の間隔を保つ。並べ替えにも計算した期限を使うので、異なる段階を同じ基準で並べられる。
 
 ## 未決
 
-記録全体の復習結果を決める方法と保存契約、「一部できた」の再試行間隔は[仕様04](../specs/04-review.md#未決)に残る。結果保存と段階進行、画面での表示、メール通知は後続で扱う。
+画面での期限表示とメール通知は後続。ページ分割とインデックスは件数・負荷に応じて見直す。

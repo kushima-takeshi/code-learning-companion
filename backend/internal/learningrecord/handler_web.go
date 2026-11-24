@@ -6,7 +6,7 @@ import (
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/auth"
 )
 
-// RegisterWebRoutes registers read-only learning record and review routes behind a Web session.
+// RegisterWebRoutes registers learning record and review routes behind a Web session.
 func (h *Handler) RegisterWebRoutes(mux *http.ServeMux, requireAuth func(http.Handler) http.Handler, trustedOrigin string) error {
 	protection := http.NewCrossOriginProtection()
 	if err := protection.AddTrustedOrigin(trustedOrigin); err != nil {
@@ -16,7 +16,7 @@ func (h *Handler) RegisterWebRoutes(mux *http.ServeMux, requireAuth func(http.Ha
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "cross_origin_forbidden"})
 	}))
 	protect := func(next func(http.ResponseWriter, *http.Request, string)) http.Handler {
-		read := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user, ok := auth.UserFromContext(r.Context())
 			if !ok {
 				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
@@ -24,7 +24,7 @@ func (h *Handler) RegisterWebRoutes(mux *http.ServeMux, requireAuth func(http.Ha
 			}
 			next(w, r, user.ID)
 		})
-		inner := requireAuth(protection.Handler(read))
+		inner := requireAuth(protection.Handler(handler))
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "no-store")
 			inner.ServeHTTP(w, r)
@@ -32,6 +32,7 @@ func (h *Handler) RegisterWebRoutes(mux *http.ServeMux, requireAuth func(http.Ha
 	}
 	mux.Handle("GET /web/learning-records", protect(h.listWeb))
 	mux.Handle("GET /web/learning-records/{id}", protect(h.getRecord))
+	mux.Handle("POST /web/learning-records/{id}/reviews", protect(h.saveReview))
 	mux.Handle("GET /web/reviews/due", protect(h.listDueReviews))
 	return nil
 }
