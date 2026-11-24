@@ -5,17 +5,20 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Service struct {
-	db *sql.DB
+	db  *sql.DB
+	now func() time.Time
 }
 
 func New(db *sql.DB) *Service {
 	return &Service{
-		db: db,
+		db:  db,
+		now: time.Now,
 	}
 }
 
