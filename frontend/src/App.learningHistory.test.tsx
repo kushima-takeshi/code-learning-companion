@@ -226,7 +226,7 @@ it("期限一覧を履歴の上にAPI順で表示し、テーマから詳細を�
   const link = within(second).getByRole("link", { name: detailRecord.theme })
   expect(link).toHaveAttribute("href", detailPath)
   expect(within(second).getByText("リポジトリ：owner/repo")).toBeInTheDocument()
-  expect(within(second).getByText("段階 2")).toBeInTheDocument()
+  expect(within(second).getByText("復習 2回目")).toBeInTheDocument()
   expect(within(second).getByText(new Date(dueAt).toLocaleString())).toHaveAttribute("datetime", dueAt)
 
   await user.click(link)

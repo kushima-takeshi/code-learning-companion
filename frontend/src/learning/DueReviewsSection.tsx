@@ -55,7 +55,7 @@ export function DueReviewsSection({
                 </a>
                 {record.repository && <p>リポジトリ：{record.repository}</p>}
                 <p className="due-review-timing">
-                  <span>段階 {record.stage}</span>
+                  <span>復習 {record.stage}回目</span>
                   <span>
                     期限：
                     <time dateTime={record.due_at}>
