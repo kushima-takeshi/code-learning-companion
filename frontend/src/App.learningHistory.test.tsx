@@ -8,6 +8,7 @@ function installFetch(
   list: (url: URL) => Response | Promise<Response>,
   loggedIn = true,
   detail?: (url: URL) => Response | Promise<Response>,
+  due: () => Response | Promise<Response> = () => Response.json({ records: [] }),
 ) {
   const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
     const url = new URL(input)
@@ -40,6 +41,10 @@ function installFetch(
       case "/web/learning-records":
         expect(init?.credentials).toBe("include")
         return list(url)
+      case "/web/reviews/due":
+        expect(init?.credentials).toBe("include")
+        expect(init?.method ?? "GET").toBe("GET")
+        return due()
       default:
         if (url.pathname.startsWith("/web/learning-records/") && detail) {
           expect(init?.credentials).toBe("include")
@@ -105,7 +110,8 @@ it("初回取得が終わるまで読み込み中を表示する", async () => {
   installFetch(() => new Promise<Response>(() => {}))
   render(<App />)
 
-  expect(await screen.findByRole("status")).toHaveTextContent("学習履歴を読み込んでいます")
+  const history = within(await screen.findByRole("region", { name: "学習履歴" }))
+  expect(history.getByRole("status")).toHaveTextContent("学習履歴を読み込んでいます")
   expect(screen.queryByText("学習記録はまだありません")).not.toBeInTheDocument()
 })
 
@@ -198,6 +204,61 @@ const detailRecord: LearningRecordDetail = {
 }
 
 const emptyList = () => Response.json({ records: [], has_more: false })
+
+it("期限一覧を履歴の上にAPI順で表示し、テーマから詳細を開く", async () => {
+  const dueAt = "2026-11-22T10:15:00Z"
+  const detail = vi.fn(() => Response.json(detailRecord))
+  installFetch(emptyList, true, detail, () => Response.json({
+    records: [
+      { id: "another-record", theme: "SQL", stage: 1, due_at: "2026-11-21T10:15:00Z" },
+      { id: detailId, theme: detailRecord.theme, repository: "owner/repo", stage: 2, due_at: dueAt },
+    ],
+  }))
+  const user = userEvent.setup()
+  render(<App />)
+
+  const dueReviews = await screen.findByRole("region", { name: "復習期限が来ている記録" })
+  const history = screen.getByRole("region", { name: "学習履歴" })
+  expect(dueReviews.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  const [first, second] = await within(dueReviews).findAllByRole("listitem")
+  expect(within(first).getByRole("link", { name: "SQL" })).toBeInTheDocument()
+  expect(within(first).queryByText(/^リポジトリ/)).not.toBeInTheDocument()
+  const link = within(second).getByRole("link", { name: detailRecord.theme })
+  expect(link).toHaveAttribute("href", detailPath)
+  expect(within(second).getByText("リポジトリ：owner/repo")).toBeInTheDocument()
+  expect(within(second).getByText("復習 2回目")).toBeInTheDocument()
+  expect(within(second).getByText(new Date(dueAt).toLocaleString())).toHaveAttribute("datetime", dueAt)
+
+  await user.click(link)
+  expect(window.location.pathname).toBe(detailPath)
+  expect(await screen.findByRole("heading", { name: detailRecord.theme })).toBeInTheDocument()
+  expect(detail).toHaveBeenCalledWith(expect.objectContaining({ pathname: `/web${detailPath}` }))
+})
+
+it("期限一覧の取得中と失敗を表示し、再試行で0件を表示する", async () => {
+  const initialResponse = Promise.withResolvers<Response>()
+  const due = vi.fn<() => Response | Promise<Response>>(() => Response.json({ records: [] }))
+    .mockReturnValueOnce(initialResponse.promise)
+  installFetch(emptyList, true, undefined, due)
+  const user = userEvent.setup()
+  render(<App />)
+
+  const section = within(await screen.findByRole("region", { name: "復習期限が来ている記録" }))
+  expect(section.getByRole("status")).toHaveTextContent("復習期限の一覧を読み込んでいます")
+  initialResponse.resolve(Response.json({ error: "internal_error" }, { status: 500 }))
+  expect(await section.findByRole("alert")).toHaveTextContent("復習期限の一覧を取得できませんでした")
+  await user.click(section.getByRole("button", { name: "再試行" }))
+  expect(await section.findByText("復習期限が来ている記録はありません")).toBeInTheDocument()
+  expect(due).toHaveBeenCalledTimes(2)
+})
+
+it("期限一覧APIの401で既存のGitHubログインへ戻る", async () => {
+  installFetch(emptyList, true, undefined, () => Response.json({ error: "unauthorized" }, { status: 401 }))
+  render(<App />)
+
+  expect(await screen.findByRole("link", { name: "GitHubでログイン" })).toBeInTheDocument()
+  expect(screen.queryByRole("region", { name: "復習期限が来ている記録" })).not.toBeInTheDocument()
+})
 
 it("一覧から詳細を開き、記録の各項目と任意の回答コードを表示し、一覧へ戻れる", async () => {
   const list = vi.fn(() => Response.json({ records: [record(detailId, "owner/repo")], has_more: false }))

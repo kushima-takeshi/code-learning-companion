@@ -12,9 +12,11 @@ const firstReviewDelay = 72 * time.Hour
 var errReviewConflict = errors.New("learning record review conflict")
 
 type dueReview struct {
-	ID    string    `json:"id"`
-	Stage int       `json:"stage"`
-	DueAt time.Time `json:"due_at"`
+	ID         string    `json:"id"`
+	Theme      string    `json:"theme"`
+	Repository string    `json:"repository,omitempty"`
+	Stage      int       `json:"stage"`
+	DueAt      time.Time `json:"due_at"`
 }
 
 // nextReviewStage finds the first missing stage for the outer record.
@@ -32,9 +34,9 @@ const nextReviewStage = `
 func (s *Service) listDueReviews(ctx context.Context, userID string) ([]dueReview, error) {
 	now := s.now()
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, stage, due_at
+		SELECT id, theme, repository, stage, due_at
 		FROM (
-			SELECT record.id, next.stage, record.created_at + CASE next.stage
+			SELECT record.id, record.theme, record.repository, next.stage, record.created_at + CASE next.stage
 				WHEN 1 THEN interval '72 hours'
 				WHEN 2 THEN interval '336 hours'
 				WHEN 3 THEN interval '720 hours'
@@ -54,7 +56,7 @@ func (s *Service) listDueReviews(ctx context.Context, userID string) ([]dueRevie
 	records := make([]dueReview, 0)
 	for rows.Next() {
 		var record dueReview
-		if err := rows.Scan(&record.ID, &record.Stage, &record.DueAt); err != nil {
+		if err := rows.Scan(&record.ID, &record.Theme, &record.Repository, &record.Stage, &record.DueAt); err != nil {
 			return nil, fmt.Errorf("scan due review: %w", err)
 		}
 		records = append(records, record)

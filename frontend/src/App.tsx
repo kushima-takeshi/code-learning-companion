@@ -6,6 +6,7 @@ import { apiBaseURL, fetchHealth } from "./api/health"
 import { fetchMe, logout } from "./api/auth"
 import type { CreateSnapshotResponse } from "./api/prSnapshots"
 import { ConnectionSection } from "./connection/ConnectionSection"
+import { DueReviewsSection } from "./learning/DueReviewsSection"
 import { LearningHistorySection } from "./learning/LearningHistorySection"
 import { LearningRecordDetailSection } from "./learning/LearningRecordDetailSection"
 
@@ -262,6 +263,11 @@ function App() {
 
       {showHome && (
         <div>
+          <DueReviewsSection
+            key={`due-reviews-${user.id}`}
+            onNavigate={handleNavigate}
+            onSessionExpired={handleSessionExpired}
+          />
           <LearningHistorySection
             key={user.id}
             onNavigate={handleNavigate}

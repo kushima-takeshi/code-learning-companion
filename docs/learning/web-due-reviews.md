@@ -15,14 +15,14 @@
 1. `cmd/server/main.go:main` → `learningrecord/handler_web.go:RegisterWebRoutes`。Webセッション認証とオリジン保護の内側に登録する。
 2. `learningrecord/handler_web.go:listDueReviews` → `learningrecord/review.go:Service.listDueReviews`。認証済みの本人IDを渡す。SQLは保存から72時間以上経過した本人の記録を対象にする。
 3. SQLの `nextReviewStage` が `learning_record_reviews` を参照し、結果のない最小の段階を選ぶ。段階が残る記録について、保存日時から72・336・720時間のいずれかを足した期限を計算する。
-4. 現在時刻以前の期限を、期限の古い順、同時刻ならID昇順で返す。ハンドラは0件なら空配列、読み取りに失敗したら500 `internal_error` を返す。
+4. 現在時刻以前の期限を、記録ID・テーマ・リポジトリ・段階とともに、期限の古い順、同時刻ならID昇順で返す。ハンドラはリポジトリがなければ `repository` を省略し、0件なら空配列、読み取りに失敗したら500 `internal_error` を返す。
 
 ## 関数ごとの表
 
 | 関数 | 目的 | 入力 | 出力 | 更新するもの |
 |---|---|---|---|---|
 | `listDueReviews`（ハンドラ） | 本人の復習期限をJSONで返す | リクエスト、本人ID | 200と一覧、または500 | なし |
-| `Service.listDueReviews` | 期限が来た本人の記録を読む | 本人ID、サービスの時計 | 記録ID、段階、期限の一覧、またはエラー | なし |
+| `Service.listDueReviews` | 期限が来た本人の記録を読む | 本人ID、サービスの時計 | 記録ID、テーマ、リポジトリ、段階、期限の一覧、またはエラー | なし |
 
 ## なぜそうしたか
 
@@ -31,4 +31,4 @@
 
 ## 未決
 
-画面での期限表示とメール通知は後続。ページ分割とインデックスは件数・負荷に応じて見直す。
+[期限一覧の画面](due-reviews-screen.md)から取得する。メール通知は後続。ページ分割とインデックスは件数・負荷に応じて見直す。
