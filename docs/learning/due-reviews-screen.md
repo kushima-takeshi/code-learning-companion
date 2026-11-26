@@ -26,6 +26,7 @@ stateDiagram-v2
 2. `learning/DueReviewsSection.tsx:loadDueReviews` → `api/learningRecords.ts:listDueReviews`。Cookie付きで `GET /web/reviews/due` を呼ぶ。
 3. `auth/middleware.go:RequireAPIAuth` → `learningrecord/handler_web.go:listDueReviews` → `learningrecord/review.go:Service.listDueReviews`。SQLで本人の記録の次の未保存段階と期限を計算する。詳細は [復習期限一覧](web-due-reviews.md) を参照する。
 4. `learning/DueReviewsSection.tsx:loadDueReviews` が結果を反映する。401では `App.tsx:handleSessionExpired` へ進む。テーマのクリックでは `App.tsx:handleNavigate` がパスを更新し、[学習記録の詳細画面](learning-record-detail.md) を表示する。
+5. [詳細画面で復習結果を保存](review-result-screen.md)するとホームに戻り、期限一覧を再取得する。
 
 ## 関数ごとの表
 
@@ -42,4 +43,4 @@ stateDiagram-v2
 
 ## 未決
 
-詳細画面での結果の保存と段階表示は次のPR。
+別チャット向けの再開用の依頼文コピーと、メール通知は後続。

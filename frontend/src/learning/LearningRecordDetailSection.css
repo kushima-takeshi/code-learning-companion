@@ -15,3 +15,25 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.current-review {
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid #c46a00;
+  border-radius: 0.5rem;
+  background: #ffe2b8;
+  color: #302214;
+}
+
+.current-review h4 {
+  margin: 0 0 0.5rem;
+  color: #c46a00;
+  font-size: 1.25rem;
+}
+
+.review-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 0.75rem 0.5rem;
+}

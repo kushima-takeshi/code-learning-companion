@@ -17,6 +17,29 @@ export type DueReview = Pick<LearningRecordSummary, "id" | "theme" | "repository
   due_at: string
 }
 
+export const reviewResults = ["できた", "一部できた", "もう一度", "判定保留"] as const
+
+export type ReviewResult = (typeof reviewResults)[number]
+
+export async function saveReviewResult(
+  encodedRecordId: string,
+  review: { result: ReviewResult; stage: number },
+  signal: AbortSignal,
+): Promise<"saved" | "unauthorized" | "conflict"> {
+  const response = await fetch(`${apiBaseURL()}/web/learning-records/${encodedRecordId}/reviews`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(review),
+    signal,
+  })
+
+  if (response.status === 201) return "saved"
+  if (response.status === 401) return "unauthorized"
+  if (response.status === 409) return "conflict"
+  throw new Error(`failed to save review result: ${response.status}`)
+}
+
 export async function listDueReviews(signal: AbortSignal): Promise<DueReview[] | null> {
   const response = await fetch(`${apiBaseURL()}/web/reviews/due`, {
     credentials: "include",

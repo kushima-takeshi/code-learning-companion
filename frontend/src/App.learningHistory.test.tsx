@@ -9,6 +9,7 @@ function installFetch(
   loggedIn = true,
   detail?: (url: URL) => Response | Promise<Response>,
   due: () => Response | Promise<Response> = () => Response.json({ records: [] }),
+  saveReview?: (init: RequestInit) => Response | Promise<Response>,
 ) {
   const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
     const url = new URL(input)
@@ -46,6 +47,9 @@ function installFetch(
         expect(init?.method ?? "GET").toBe("GET")
         return due()
       default:
+        if (init?.method === "POST" && saveReview && decodeURIComponent(url.pathname) === `/web${detailPath}/reviews`) {
+          return saveReview(init)
+        }
         if (url.pathname.startsWith("/web/learning-records/") && detail) {
           expect(init?.credentials).toBe("include")
           expect(init?.method ?? "GET").toBe("GET")
@@ -204,6 +208,13 @@ const detailRecord: LearningRecordDetail = {
 }
 
 const emptyList = () => Response.json({ records: [], has_more: false })
+const dueReview = {
+  id: detailId,
+  theme: detailRecord.theme,
+  stage: 2,
+  due_at: "2026-12-03T10:15:00Z",
+}
+const dueWithReview = () => Response.json({ records: [dueReview] })
 
 it("期限一覧を履歴の上にAPI順で表示し、テーマから詳細を開く", async () => {
   const dueAt = "2026-11-22T10:15:00Z"
@@ -258,6 +269,71 @@ it("期限一覧APIの401で既存のGitHubログインへ戻る", async () => {
 
   expect(await screen.findByRole("link", { name: "GitHubでログイン" })).toBeInTheDocument()
   expect(screen.queryByRole("region", { name: "復習期限が来ている記録" })).not.toBeInTheDocument()
+})
+
+it("期限到来の復習を詳細で保存し、ホームで期限一覧を再取得する", async () => {
+  // URL中の %30 は詳細のID先頭の 0 と同じ文字。
+  const encodedPath = detailPath.replace(detailId, `%30${detailId.slice(1)}`)
+  window.history.replaceState(null, "", encodedPath)
+  const response = Promise.withResolvers<Response>()
+  const save = vi.fn(() => response.promise)
+  const due = vi.fn(() => Response.json({ records: [] }))
+    .mockImplementationOnce(dueWithReview)
+  installFetch(
+    emptyList, true, () => Response.json(detailRecord), due, save,
+  )
+  const user = userEvent.setup()
+  render(<App />)
+
+  const review = within(await screen.findByRole("region", { name: "復習 2回目" }))
+  expect(review.getByText(new Date(dueReview.due_at).toLocaleString()))
+    .toHaveAttribute("datetime", dueReview.due_at)
+  expect(review.getByText("結果を保存しても復習期限は変わりません。")).toBeInTheDocument()
+  const buttons = review.getAllByRole("button")
+  expect(buttons.map((button) => button.textContent)).toEqual(["できた", "一部できた", "もう一度", "判定保留"])
+
+  await user.click(review.getByRole("button", { name: "できた" }))
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ result: "できた", stage: 2 }),
+  }))
+  expect(window.location.pathname).toBe(encodedPath)
+  for (const button of buttons) expect(button).toBeDisabled()
+  await user.click(review.getByRole("button", { name: "一部できた" }))
+  expect(save).toHaveBeenCalledTimes(1)
+
+  response.resolve(Response.json({ stage: 2 }, { status: 201 }))
+  const homeDue = within(await screen.findByRole("region", { name: "復習期限が来ている記録" }))
+  expect(await homeDue.findByText("復習期限が来ている記録はありません")).toBeInTheDocument()
+  expect(homeDue.queryByRole("link", { name: detailRecord.theme })).not.toBeInTheDocument()
+  expect(window.location.pathname).toBe("/")
+  expect(due).toHaveBeenCalledTimes(2)
+})
+
+it.each([
+  { status: 409, error: "review_conflict", message: "復習の状態が変わりました" },
+  { status: 500, error: "internal_error", message: "復習の結果を保存できませんでした" },
+  { status: 401, error: "unauthorized", message: null },
+])("復習保存の $status を画面に反映する", async ({ status, error, message }) => {
+  window.history.replaceState(null, "", detailPath)
+  installFetch(
+    emptyList, true, () => Response.json(detailRecord), dueWithReview,
+    () => Response.json({ error }, { status }),
+  )
+  const user = userEvent.setup()
+  render(<App />)
+
+  await user.click(await screen.findByRole("button", { name: "できた" }))
+  if (message) {
+    expect(await screen.findByRole("alert")).toHaveTextContent(message)
+    expect(screen.getByRole("heading", { name: detailRecord.theme })).toBeInTheDocument()
+    expect(window.location.pathname).toBe(detailPath)
+  } else {
+    expect(await screen.findByRole("link", { name: "GitHubでログイン" })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: detailRecord.theme })).not.toBeInTheDocument()
+  }
 })
 
 it("一覧から詳細を開き、記録の各項目と任意の回答コードを表示し、一覧へ戻れる", async () => {
@@ -341,14 +417,19 @@ it.each([
   expect(form.get("file")).toBe(visitDetail ? null : file)
 })
 
-it("詳細URLを直接開き、リポジトリのない記録では項目を省く", async () => {
+it("詳細URLを直接開き、リポジトリと期限到来がなければそれぞれの欄を省く", async () => {
   window.history.replaceState(null, "", detailPath)
   const list = vi.fn(emptyList)
-  installFetch(list, true, () => Response.json({ ...detailRecord, repository: undefined }))
+  installFetch(
+    list, true, () => Response.json({ ...detailRecord, repository: undefined }),
+    () => Response.json({ records: [{ ...dueReview, id: "another-record" }] }),
+  )
   render(<App />)
 
   expect(await screen.findByRole("heading", { name: detailRecord.theme })).toBeInTheDocument()
   expect(screen.queryByText(/^リポジトリ/)).not.toBeInTheDocument()
+  expect(screen.queryByRole("region", { name: /^復習 .*回目$/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "できた" })).not.toBeInTheDocument()
   expect(list).not.toHaveBeenCalled()
 })
 
