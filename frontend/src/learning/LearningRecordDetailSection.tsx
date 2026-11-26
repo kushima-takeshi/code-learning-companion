@@ -1,17 +1,31 @@
-import { useEffect, useState, type MouseEventHandler } from "react"
-import { getLearningRecord, type LearningRecordDetail } from "../api/learningRecords"
+import { useEffect, useRef, useState, type MouseEventHandler } from "react"
+import {
+  getLearningRecord,
+  listDueReviews,
+  reviewResults,
+  saveReviewResult,
+  type DueReview,
+  type LearningRecordDetail,
+  type ReviewResult,
+} from "../api/learningRecords"
 import "./LearningRecordDetailSection.css"
 
 export function LearningRecordDetailSection({
   encodedRecordId,
   onNavigate,
+  onReviewSaved,
   onSessionExpired,
 }: {
   encodedRecordId: string
   onNavigate: MouseEventHandler<HTMLAnchorElement>
+  onReviewSaved: () => void
   onSessionExpired: () => void
 }) {
   const [result, setResult] = useState<LearningRecordDetail | "loading" | "not-found" | "failed">("loading")
+  const [dueReview, setDueReview] = useState<DueReview | "failed" | undefined>()
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const saveRequest = useRef<AbortController | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -31,9 +45,60 @@ export function LearningRecordDetailSection({
       }
     }
 
+    async function loadDueReview() {
+      try {
+        const records = await listDueReviews(controller.signal)
+        if (controller.signal.aborted) return
+
+        if (records === null) {
+          onSessionExpired()
+          return
+        }
+        const recordId = decodeURIComponent(encodedRecordId)
+        setDueReview(records.find((record) => record.id === recordId))
+      } catch {
+        if (!controller.signal.aborted) setDueReview("failed")
+      }
+    }
+
     void loadRecord()
-    return () => controller.abort()
+    void loadDueReview()
+    return () => {
+      controller.abort()
+      saveRequest.current?.abort()
+    }
   }, [encodedRecordId, onSessionExpired])
+
+  async function handleSaveReview(reviewResult: ReviewResult) {
+    if (typeof dueReview !== "object" || saveRequest.current) return
+
+    const controller = new AbortController()
+    saveRequest.current = controller
+    setSaving(true)
+    setSaveError(null)
+
+    try {
+      const outcome = await saveReviewResult(
+        encodedRecordId,
+        { result: reviewResult, stage: dueReview.stage },
+        controller.signal,
+      )
+      if (controller.signal.aborted) return
+
+      if (outcome === "saved") {
+        onReviewSaved()
+      } else if (outcome === "unauthorized") {
+        onSessionExpired()
+      } else {
+        setSaveError("復習の状態が変わりました。詳細を開き直してください。")
+      }
+    } catch {
+      if (!controller.signal.aborted) setSaveError("復習の結果を保存できませんでした")
+    } finally {
+      saveRequest.current = null
+      if (!controller.signal.aborted) setSaving(false)
+    }
+  }
 
   return (
     <section aria-labelledby="learning-record-detail-heading" className="learning-record-detail">
@@ -53,6 +118,30 @@ export function LearningRecordDetailSection({
               {new Date(result.created_at).toLocaleString()}
             </time>
           </p>
+          {dueReview === "failed" && <p role="alert">復習期限の一覧を取得できませんでした</p>}
+          {typeof dueReview === "object" && (
+            <section aria-labelledby="current-review-heading" className="current-review">
+              <h4 id="current-review-heading">復習 {dueReview.stage}回目</h4>
+              <p>
+                期限：
+                <time dateTime={dueReview.due_at}>{new Date(dueReview.due_at).toLocaleString()}</time>
+              </p>
+              <p>結果を保存しても復習期限は変わりません。</p>
+              <div className="review-results">
+                {reviewResults.map((reviewResult) => (
+                  <button
+                    key={reviewResult}
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void handleSaveReview(reviewResult)}
+                  >
+                    {reviewResult}
+                  </button>
+                ))}
+              </div>
+              {saveError && <p role="alert">{saveError}</p>}
+            </section>
+          )}
           {result.questions.map(({ prompt, answer, feedback }, index) => (
             <section key={index} aria-labelledby={`question-${index}`}>
               <h4 id={`question-${index}`}>問題 {index + 1}</h4>

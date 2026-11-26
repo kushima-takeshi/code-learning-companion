@@ -44,7 +44,11 @@ function App() {
         event.ctrlKey || event.shiftKey || event.altKey) return
 
     event.preventDefault()
-    window.history.pushState(null, "", event.currentTarget.href)
+    navigate(event.currentTarget.href)
+  }
+
+  function navigate(href: string) {
+    window.history.pushState(null, "", href)
     setPathname(window.location.pathname)
   }
 
@@ -245,6 +249,7 @@ function App() {
               key={`${user.id}:${detailId}`}
               encodedRecordId={detailId}
               onNavigate={handleNavigate}
+              onReviewSaved={() => navigate("/")}
               onSessionExpired={handleSessionExpired}
             />
           )}
