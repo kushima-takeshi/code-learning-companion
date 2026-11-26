@@ -25,6 +25,7 @@ export function LearningRecordDetailSection({
   const [dueReview, setDueReview] = useState<DueReview | "failed" | undefined>()
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [copyState, setCopyState] = useState<"copying" | "copied" | "failed">()
   const saveRequest = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -68,6 +69,18 @@ export function LearningRecordDetailSection({
       saveRequest.current?.abort()
     }
   }, [encodedRecordId, onSessionExpired])
+
+  async function handleCopyResumeRequest(recordId: string) {
+    setCopyState("copying")
+    try {
+      await navigator.clipboard.writeText(
+        `get_learning_record で記録 ${recordId} を取得し、その復習を進めてください。`,
+      )
+      setCopyState("copied")
+    } catch {
+      setCopyState("failed")
+    }
+  }
 
   async function handleSaveReview(reviewResult: ReviewResult) {
     if (typeof dueReview !== "object" || saveRequest.current) return
@@ -140,6 +153,16 @@ export function LearningRecordDetailSection({
                 ))}
               </div>
               {saveError && <p role="alert">{saveError}</p>}
+              <button
+                className="resume-copy-button"
+                type="button"
+                disabled={copyState === "copying"}
+                onClick={() => void handleCopyResumeRequest(dueReview.id)}
+              >
+                再開用の依頼文をコピー
+              </button>
+              {copyState === "copied" && <p role="status">コピーしました</p>}
+              {copyState === "failed" && <p role="alert">コピーできませんでした</p>}
             </section>
           )}
           {result.questions.map(({ prompt, answer, feedback }, index) => (

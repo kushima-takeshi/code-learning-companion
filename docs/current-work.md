@@ -2,7 +2,7 @@
 
 更新日: 2026-11-24
 現行計画: [第二案](implementation-plan-v2.md)
-現在地: ブロック5 PR-bで詳細から復習結果を保存してホームに戻る処理を実装し、Vitest・lint（既存警告1件）・ビルドで確認した。次の一手は再開用の依頼文コピー。メール通知はその後。ブロック4の詳細画面（PR #80）はユーザーによる実サーバー確認が残る。
+現在地: ブロック5で再開用の依頼文コピーを実装し、Vitest（67件）・lint（既存警告1件）・ビルドで確認した。次の一手はメール通知。ブロック4の詳細画面（PR #80）はユーザーによる実サーバー確認が残る。
 過去の日付付き記録: [2026-10](archive/current-work-2026-10.md)、[2026-11](archive/current-work-2026-11.md)。
 
 ## PRレビュー・コード解説の進め方（2026-11-18）
@@ -22,7 +22,7 @@
 | 2. AIツールとアプリの接続 | 完了。連携トークンの内部処理をPR #23で実装／実DB検証済み。管理APIは実装／実DB検証済み。名前変更APIも実装／実DB検証済み。学習記録の一覧・保存・詳細API・Bearer認証を実装／実DB検証済み。再接続サーバー処理・24時間期限も実装／実DB検証済み。使えない旧トークンからの新規開始は409 `token_unavailable`（実装／実DB検証済み）。接続一覧は未完了の置き換え先を出さない（実装／実DB検証済み）。接続画面の追加・一覧・原本一度表示・名前変更・失効・作り直すは実装し、VitestとモックAPIのブラウザで確認。ユーザーは PR #39 の接続画面を実サーバーで手動確認。再接続の画面は実装し、VitestとモックAPIのブラウザで確認。2026-11-10に、開始から完了まで実Goサーバーで確認済み。やり直しは2026-11-12に実Goサーバーで確認済み。使えない行の409は2026-11-12に実Goサーバーで確認済み。再接続の24時間経過は2026-11-17に実サーバーで確認済み。旧トークンは一覧に使え、再開で旧操作は expired、新しい操作は pending。期限切れ操作の新トークンは2026-11-18に実サーバーで401、completeは409 `reconnection_conflict`。DBで `created_at` を25時間前、`expires_at` を1時間前へずらした。`state` は `pending` のまま。旧トークンの一覧は200。ローカルMCPの3ツールは2026-11-16に実プロセスで確認済み。1つのAIツール（Cursor）からの保存・再取得と本人分離は手動確認済み。定期整理の削除は実装・実DB検証済み。起動直後に1回実行し、その後は24時間ごと。全体ブロック2は完了。次はブロック3。 | 主に順序2 |
 | 3. 自作スキルで学習し、確認した記録を保存 | 完了。ユーザーが2026-11-18〜19にCursorアプリから手動確認済み。保存成功、サーバー停止中の失敗と再送、`get_learning_record` での再取得。次はブロック4 | 順序3〜5 |
 | 4. アプリで履歴を見返す | PR1〜PR4はマージ済み。リポジトリ情報の保存・取得とWeb APIは実DB検証済み。[履歴一覧](learning/learning-history-list.md)とPR5の[詳細画面](learning/learning-record-detail.md)は実装・Vitest確認済み。ユーザーによる実サーバー確認待ち | 順序6 |
-| 5. 復習・通知 | [結果保存API](learning/web-review-results.md)と[期限一覧API](learning/web-due-reviews.md)は実DB検証済み。[ホームの期限一覧](learning/due-reviews-screen.md)と[詳細での結果保存](learning/review-result-screen.md)は実装・Vitest確認済み。再開用の依頼文コピーとメール通知が残る | 順序7〜8 |
+| 5. 復習・通知 | [結果保存API](learning/web-review-results.md)と[期限一覧API](learning/web-due-reviews.md)は実DB検証済み。[ホームの期限一覧](learning/due-reviews-screen.md)、[詳細での結果保存](learning/review-result-screen.md)、[再開用の依頼文コピー](learning/review-resume-copy.md)は実装・Vitest確認済み。次はメール通知 | 順序7〜8 |
 | 6. 削除・全体利用上限・公開前確認 | 未実装。既存の入力容量制限と、今後の累積容量・頻度制限を区別する | 順序9 |
 
 [PR #28](https://github.com/kushima-takeshi/code-learning-companion/pull/28)（連携トークン認証付きの学習記録保存・詳細取得API）は origin/main の `f51f8b0` でマージ済み。当時の origin/main（`32eba97`）から `codex/learning-record-save-detail-api` を作成し、既存の未コミットのレビュー引き継ぎメモは保全して引き継いだ。ユーザーは保存・詳細取得APIの契約に合意し、そのPR単位で直接実装・検証・コミット・プッシュ・PR作成まで進め、途中の実装や確認をユーザーへ振らないよう依頼した。その許可はPR #28の範囲に限る。[PR #30](https://github.com/kushima-takeshi/code-learning-companion/pull/30)（説明の型）もマージ済みで、機能の現在地は変えていない。[PR #29](https://github.com/kushima-takeshi/code-learning-companion/pull/29)（再接続のサーバー処理）は origin/main の `943c4eb` でマージ済み。範囲は保存先・開始／状態取得／完了／やり直しAPI・一覧成功との連携・排他制御・未完了24時間の拒否。ユーザーはそのPR単位で設計・直接実装・実DB検証・小さなコミット・プッシュ・PR作成まで任せ、途中の実装や確認をユーザーへ振らず進めるよう依頼した。その許可はPR #29の範囲に限る。作業ブランチは `f51f8b0` から `codex/connection-reconnect-api` を作成し、未追跡の説明画像`output/`は保全し、コミット対象に含めなかった。接続画面・MCP・定期整理・ブロック2全体の完了は後続とする。
