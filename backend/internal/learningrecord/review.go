@@ -19,6 +19,13 @@ type dueReview struct {
 	DueAt      time.Time `json:"due_at"`
 }
 
+type reviewStatus struct {
+	Completed bool       `json:"completed"`
+	Stage     int        `json:"stage,omitempty"`
+	DueAt     *time.Time `json:"due_at,omitempty"`
+	Due       *bool      `json:"due,omitempty"`
+}
+
 // nextReviewStage finds the first missing stage for the outer record.
 const nextReviewStage = `
 	SELECT candidate.stage
@@ -36,6 +43,25 @@ const reviewDueAt = `record.created_at + CASE next.stage
 	WHEN 2 THEN interval '336 hours'
 	WHEN 3 THEN interval '720 hours'
 END`
+
+func (s *Service) getReviewStatus(ctx context.Context, userID, recordID string) (reviewStatus, error) {
+	const query = `
+		SELECT stage IS NULL, COALESCE(stage, 0), due_at, due_at <= $3
+		FROM (
+			SELECT next.stage, ` + reviewDueAt + ` AS due_at
+			FROM learning_records AS record
+			LEFT JOIN LATERAL (` + nextReviewStage + `) AS next ON true
+			WHERE record.user_id = $1 AND record.id = $2
+		) AS review
+	`
+	var status reviewStatus
+	err := s.db.QueryRowContext(ctx, query, userID, recordID, s.now()).
+		Scan(&status.Completed, &status.Stage, &status.DueAt, &status.Due)
+	if err != nil {
+		return reviewStatus{}, fmt.Errorf("get review status: %w", err)
+	}
+	return status, nil
+}
 
 func (s *Service) listDueReviews(ctx context.Context, userID string) ([]dueReview, error) {
 	now := s.now()

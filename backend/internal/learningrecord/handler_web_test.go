@@ -42,7 +42,7 @@ func TestWebLearningRoutes(t *testing.T) {
 }
 
 func TestWebLearningRecordsHTTPIntegration(t *testing.T) {
-	db, handler, tokens := newListHTTP(t)
+	db, handler, tokens := newListHTTP(t, reviewMigration)
 	owner, other := listUser(t, db, 1), listUser(t, db, 2)
 	ctx := context.Background()
 	cookie := learningSession(t, db, owner, time.Now().Add(time.Hour))
