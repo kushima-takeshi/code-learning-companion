@@ -78,6 +78,8 @@ func main() {
 	go learningrecord.RunReviewNotificationSchedule(ctx, learningrecord.ReviewNotificationSchedule{
 		Interval: learningrecord.ReviewNotificationInterval,
 		Notify: func(ctx context.Context, now time.Time) error {
+			// 今は実送信せずログのみ。CORSの許可元はフロントのURLと同じ値になる。
+			// 実メール送信のPRで、専用設定を分けるか見直す。
 			return learningRecords.LogDueReviewNotifications(ctx, now, cfg.CORSOrigin, log.Printf)
 		},
 	})
