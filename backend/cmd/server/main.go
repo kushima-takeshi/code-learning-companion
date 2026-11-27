@@ -74,7 +74,16 @@ func main() {
 	if err := connectionTokenHandler.RegisterRoutes(mux, authHandler.RequireAuth, cfg.CORSOrigin); err != nil {
 		log.Fatalf("initialize connection token management: %v", err)
 	}
-	learningRecordHandler := learningrecord.NewHandler(learningrecord.New(database))
+	learningRecords := learningrecord.New(database)
+	go learningrecord.RunReviewNotificationSchedule(ctx, learningrecord.ReviewNotificationSchedule{
+		Interval: learningrecord.ReviewNotificationInterval,
+		Notify: func(ctx context.Context, now time.Time) error {
+			// 今は実送信せずログのみ。CORSの許可元はフロントのURLと同じ値になる。
+			// 実メール送信のPRで、専用設定を分けるか見直す。
+			return learningRecords.LogDueReviewNotifications(ctx, now, cfg.CORSOrigin, log.Printf)
+		},
+	})
+	learningRecordHandler := learningrecord.NewHandler(learningRecords)
 	learningRecordHandler.RegisterRoutes(mux, connectionTokens)
 	if err := learningRecordHandler.RegisterWebRoutes(mux, authHandler.RequireAPIAuth, cfg.CORSOrigin); err != nil {
 		log.Fatalf("initialize web learning records: %v", err)
