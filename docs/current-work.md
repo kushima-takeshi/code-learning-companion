@@ -1,6 +1,6 @@
 # 現在の作業
 
-更新日: 2026-11-24
+更新日: 2026-11-27
 現行計画: [第二案](implementation-plan-v2.md)
 現在地: ブロック5で再開用の依頼文コピーを実装し、Vitest（67件）・lint（既存警告1件）・ビルドで確認した。次の一手はメール通知。ブロック4の詳細画面（PR #80）はユーザーによる実サーバー確認が残る。
 過去の日付付き記録: [2026-10](archive/current-work-2026-10.md)、[2026-11](archive/current-work-2026-11.md)。
@@ -49,11 +49,18 @@
 
 ## 次の一手
 
-PR5は `npm test`（57件）、`npm run lint`（既存警告1件）、`npm run build` が成功。Viteで詳細URLがHTMLを返すことも確認した。次はユーザーが実サーバーで、一覧から保存済み記録の問題・回答・解説を見返せることを確認する。
+main はブロック5の詳細から復習結果を保存してホームへ戻る処理（[PR #87](https://github.com/kushima-takeshi/code-learning-companion/pull/87)）まで入っている。[PR #90](https://github.com/kushima-takeshi/code-learning-companion/pull/90)（CIの `npm test`）と [PR #91](https://github.com/kushima-takeshi/code-learning-companion/pull/91)（レビュー時の仮画面イメージ）は main へ入った。開いているのは [PR #89](https://github.com/kushima-takeshi/code-learning-companion/pull/89)（復習の再開用依頼文コピー）。メール通知はその後。
+
+機能PRの前に書く4行の例（[PR #89](https://github.com/kushima-takeshi/code-learning-companion/pull/89)）:
+
+- 決めたこと: 詳細画面の「復習 n回目」に依頼文コピーボタン
+- 理由: MCP接続したAIの別チャットですぐ復習を始められる
+- 触る場所: LearningRecordDetailSection.tsxとそのテスト
+- 危ない点: 保存中のコピー、ブラウザがコピーを拒否したときの表示
 
 PR取り込みは送信時のファイル入力欄から添付を読み、詳細画面から戻ったときの古い添付の送信を防ぐ。[Issue #81](https://github.com/kushima-takeshi/code-learning-companion/issues/81)
 
-[PR #28](https://github.com/kushima-takeshi/code-learning-companion/pull/28)、[PR #29](https://github.com/kushima-takeshi/code-learning-companion/pull/29)、[PR #30](https://github.com/kushima-takeshi/code-learning-companion/pull/30) はいずれも main へマージ済み。保存・詳細APIはユーザー確認済み。再接続サーバー処理（`7c0d642` と `47ab00c`）もマージ済みで、文書の解説待ちにはしない。接続一覧の未完了トークンは上の節で実装・実DB検証済み。接続画面の追加から作り直すまでは実装済み。再接続の画面も実装済み。ローカルMCPの3ツールは2026-11-16に実プロセスで確認済み。1つのAIツール（Cursor）からの保存・再取得と本人分離は手動確認済み。定期整理の削除は実装・実DB検証済みで、起動直後に1回実行し、その後は24時間ごと。全体ブロック2は完了。全体ブロック3は完了。2026-11-10に開始から完了、2026-11-12にやり直しを実Goサーバーで確認した。使えない行の409は2026-11-12に実Goサーバーで確認済み。期限切れ操作の新トークンの401と complete の409 `reconnection_conflict` は2026-11-18に実サーバーで確認済み。旧トークンの一覧は200。取り込み前のPR範囲と次の一手の原文は [2026-11の記録](archive/current-work-2026-11.md) に残した。
+取り込み前のPR範囲と、当時の次の一手の原文は [2026-11の記録](archive/current-work-2026-11.md) に残した。下の1〜4は完了した記録で、いまの実装対象ではない。
 
 1. 接続画面のうち、追加・一覧・原本の一度表示・名前変更・失効・使えない行の「作り直す」に加え、再接続の欄（開始・手動の状態確認・完了・やり直し）も入った。未完了の置き換え先は接続一覧に出さない。409 `token_unavailable` のときは追加欄へ同じ名前を入れて案内し、追加するまで発行しない。ローカルMCPは [Issue #44](https://github.com/kushima-takeshi/code-learning-companion/issues/44)。目的: 薄いローカルアダプターから連携トークンで学習記録APIを呼ぶ。契約案は [仕様08](specs/08-local-mcp.md)。一覧・保存・詳細取得の3つ。名前は `list_learning_records`、`save_learning_record`、`get_learning_record` で確定。旧草案は採用しない。stdioで3ツールを実装した。一覧は任意の `limit` と `offset` を、指定時だけクエリで送る。保存の `validation_failed` は `details` の `path`、`code`、`allowed_values` を返す。2026-11-16に、Cursorのstdioで一覧（引数なし、limit 1・offset 0）、保存（成功と type=multiple_choice の400 validation_failed）、詳細取得を確認した。Issue #44 と全体ブロック2は完了。次はブロック3。説明は [一覧](learning/mcp-list.md)、[保存](learning/mcp-save.md)、[詳細](learning/mcp-get.md)。説明は [接続画面](learning/connection-screen.md)、[再接続の画面](learning/reconnect-screen.md)、[接続一覧](learning/token-list.md)。全体ブロック2は完了。次はブロック3。
 2. 1つのAIツールからの最小試作は [Issue #45](https://github.com/kushima-takeshi/code-learning-companion/issues/45)。2026-11-16にCursorのstdioで本人の保存・再取得を確認し、2026-11-17に別ユーザーの記録は `404 record_not_found` で、一覧にも出ないことを確認した。Issue #45は2026-11-17に完了として閉じた。この確認はCursorで行った。最初のAIツールはCursorで決めた。全体ブロック2は完了。次はブロック3。
