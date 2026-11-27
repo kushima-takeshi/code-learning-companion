@@ -67,6 +67,9 @@ func (s *Service) recordDueReviewNotifications(ctx context.Context, now time.Tim
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("read review notifications: %w", err)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close review notifications: %w", err)
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit review notifications: %w", err)
 	}
