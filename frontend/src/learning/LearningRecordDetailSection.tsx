@@ -122,7 +122,7 @@ export function LearningRecordDetailSection({
               {new Date(result.created_at).toLocaleString()}
             </time>
           </p>
-          <section aria-labelledby="current-review-heading" className="current-review">
+          <section aria-labelledby="current-review-heading" className={canReview ? "current-review is-due" : "current-review"}>
             <h4 id="current-review-heading">{reviewHeading(result.review)}</h4>
             {canReview && (
               <>
