@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, expect, it, vi } from "vitest"
 import App from "./App"
@@ -289,7 +289,8 @@ it("期限到来の復習を詳細で保存し、ホームで期限一覧を再�
   expect(review.getByText(new Date(dueReview.due_at).toLocaleString()))
     .toHaveAttribute("datetime", dueReview.due_at)
   expect(review.getByText("結果を保存しても復習期限は変わりません。")).toBeInTheDocument()
-  const buttons = review.getAllByRole("button")
+  const buttons = within(review.getByRole("button", { name: "できた" }).parentElement!)
+    .getAllByRole("button")
   expect(buttons.map((button) => button.textContent)).toEqual(["できた", "一部できた", "もう一度", "判定保留"])
 
   await user.click(review.getByRole("button", { name: "できた" }))
@@ -310,6 +311,27 @@ it("期限到来の復習を詳細で保存し、ホームで期限一覧を再�
   expect(homeDue.queryByRole("link", { name: detailRecord.theme })).not.toBeInTheDocument()
   expect(window.location.pathname).toBe("/")
   expect(due).toHaveBeenCalledTimes(2)
+})
+
+it.each([
+  { outcome: "成功", clipboard: { writeText: vi.fn().mockResolvedValue(undefined) }, role: "status", message: "コピーしました" },
+  { outcome: "拒否", clipboard: { writeText: vi.fn().mockRejectedValue(new DOMException("Denied", "NotAllowedError")) }, role: "alert", message: "コピーできませんでした" },
+  { outcome: "APIなし", clipboard: undefined, role: "alert", message: "コピーできませんでした" },
+])("期限到来の詳細で再開用の依頼文をコピーする（$outcome）", async ({ clipboard, role, message }) => {
+  window.history.replaceState(null, "", detailPath.replace(detailId, `%30${detailId.slice(1)}`))
+  vi.stubGlobal("navigator", { clipboard })
+  installFetch(emptyList, true, () => Response.json(detailRecord), dueWithReview)
+  render(<App />)
+
+  const review = within(await screen.findByRole("region", { name: "復習 2回目" }))
+  fireEvent.click(review.getByRole("button", { name: "再開用の依頼文をコピー" }))
+
+  expect(await review.findByRole(role)).toHaveTextContent(message)
+  if (clipboard) {
+    expect(clipboard.writeText).toHaveBeenCalledExactlyOnceWith(
+      `get_learning_record で記録 ${detailId} を取得し、その復習を進めてください。`,
+    )
+  }
 })
 
 it.each([
@@ -430,6 +452,7 @@ it("詳細URLを直接開き、リポジトリと期限到来がなければそ�
   expect(screen.queryByText(/^リポジトリ/)).not.toBeInTheDocument()
   expect(screen.queryByRole("region", { name: /^復習 .*回目$/ })).not.toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "できた" })).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "再開用の依頼文をコピー" })).not.toBeInTheDocument()
   expect(list).not.toHaveBeenCalled()
 })
 

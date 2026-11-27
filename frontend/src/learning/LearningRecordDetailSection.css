@@ -37,3 +37,17 @@
   gap: 0.5rem;
   margin-block: 0.75rem 0.5rem;
 }
+
+.resume-copy-button {
+  margin-block: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #52657a;
+  border-radius: 0.375rem;
+  background: #fff;
+  color: #253348;
+  font: inherit;
+}
+
+.resume-copy-button:disabled {
+  opacity: 0.65;
+}
