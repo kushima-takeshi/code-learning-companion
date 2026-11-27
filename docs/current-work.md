@@ -53,8 +53,8 @@ main はブロック5の詳細から復習結果を保存してホームへ戻�
 
 機能PRの前に書く4行の例（[PR #89](https://github.com/kushima-takeshi/code-learning-companion/pull/89)）:
 
-- 決めたこと: 詳細画面の「復習 n回目」に依頼文コピーボタン
-- 理由: MCP接続したAIの別チャットですぐ復習を始められる
+- 決めたこと: 詳細画面の「復習 n回目」に依頼文コピーボタン。依頼文は記録IDと、MCP接続したAIに `get_learning_record` で取得して復習を進める短い指示だけ（段階・問題文・回答は含めない）。ボタンは期限到来の記録だけ（[Issue #88](https://github.com/kushima-takeshi/code-learning-companion/issues/88) までの暫定）
+- 理由: 本文はMCP経由で取り、依頼文を短くして学習内容をクリップボードに載せない
 - 触る場所: LearningRecordDetailSection.tsxとそのテスト
 - 危ない点: 保存中のコピー、ブラウザがコピーを拒否したときの表示
 
