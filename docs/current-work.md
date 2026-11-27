@@ -2,7 +2,7 @@
 
 更新日: 2026-11-27
 現行計画: [第二案](implementation-plan-v2.md)
-現在地: main に再開用の依頼文コピー（[PR #89](https://github.com/kushima-takeshi/code-learning-companion/pull/89)）と例文の修正（[PR #93](https://github.com/kushima-takeshi/code-learning-companion/pull/93)）が入った。このブランチではブロック5のメール通知の第一段階としてログ出力を実装し、実DBで検証した。実メール送信は未完了。ブロック4の詳細画面（PR #80）はユーザーによる実サーバー確認が残る。
+現在地: main に再開用の依頼文コピー（[PR #89](https://github.com/kushima-takeshi/code-learning-companion/pull/89)）と例文の修正（[PR #93](https://github.com/kushima-takeshi/code-learning-companion/pull/93)）が入った。main に通知ログ（[PR #94](https://github.com/kushima-takeshi/code-learning-companion/pull/94)）が入った。このブランチでは [Issue #88](https://github.com/kushima-takeshi/code-learning-companion/issues/88) を実装し、詳細で段階・期限・完了を表示する。実メール送信は未完了。ブロック4の詳細画面（PR #80）はユーザーによる実サーバー確認が残る。
 過去の日付付き記録: [2026-10](archive/current-work-2026-10.md)、[2026-11](archive/current-work-2026-11.md)。
 
 ## PRレビュー・コード解説の進め方（2026-11-18）
@@ -22,7 +22,7 @@
 | 2. AIツールとアプリの接続 | 完了。連携トークンの内部処理をPR #23で実装／実DB検証済み。管理APIは実装／実DB検証済み。名前変更APIも実装／実DB検証済み。学習記録の一覧・保存・詳細API・Bearer認証を実装／実DB検証済み。再接続サーバー処理・24時間期限も実装／実DB検証済み。使えない旧トークンからの新規開始は409 `token_unavailable`（実装／実DB検証済み）。接続一覧は未完了の置き換え先を出さない（実装／実DB検証済み）。接続画面の追加・一覧・原本一度表示・名前変更・失効・作り直すは実装し、VitestとモックAPIのブラウザで確認。ユーザーは PR #39 の接続画面を実サーバーで手動確認。再接続の画面は実装し、VitestとモックAPIのブラウザで確認。2026-11-10に、開始から完了まで実Goサーバーで確認済み。やり直しは2026-11-12に実Goサーバーで確認済み。使えない行の409は2026-11-12に実Goサーバーで確認済み。再接続の24時間経過は2026-11-17に実サーバーで確認済み。旧トークンは一覧に使え、再開で旧操作は expired、新しい操作は pending。期限切れ操作の新トークンは2026-11-18に実サーバーで401、completeは409 `reconnection_conflict`。DBで `created_at` を25時間前、`expires_at` を1時間前へずらした。`state` は `pending` のまま。旧トークンの一覧は200。ローカルMCPの3ツールは2026-11-16に実プロセスで確認済み。1つのAIツール（Cursor）からの保存・再取得と本人分離は手動確認済み。定期整理の削除は実装・実DB検証済み。起動直後に1回実行し、その後は24時間ごと。全体ブロック2は完了。次はブロック3。 | 主に順序2 |
 | 3. 自作スキルで学習し、確認した記録を保存 | 完了。ユーザーが2026-11-18〜19にCursorアプリから手動確認済み。保存成功、サーバー停止中の失敗と再送、`get_learning_record` での再取得。次はブロック4 | 順序3〜5 |
 | 4. アプリで履歴を見返す | PR1〜PR4はマージ済み。リポジトリ情報の保存・取得とWeb APIは実DB検証済み。[履歴一覧](learning/learning-history-list.md)とPR5の[詳細画面](learning/learning-record-detail.md)は実装・Vitest確認済み。ユーザーによる実サーバー確認待ち | 順序6 |
-| 5. 復習・通知 | [結果保存API](learning/web-review-results.md)と[期限一覧API](learning/web-due-reviews.md)は実DB検証済み。[ホームの期限一覧](learning/due-reviews-screen.md)、[詳細での結果保存](learning/review-result-screen.md)、[再開用の依頼文コピー](learning/review-resume-copy.md)は実装・Vitest確認済み。このブランチの[通知ログ](learning/review-notification-log.md)は実装・実DB検証済み。実メール送信は未完了 | 順序7〜8 |
+| 5. 復習・通知 | [結果保存API](learning/web-review-results.md)と[期限一覧API](learning/web-due-reviews.md)は実DB検証済み。[ホームの期限一覧](learning/due-reviews-screen.md)、[詳細での結果保存](learning/review-result-screen.md)、[再開用の依頼文コピー](learning/review-resume-copy.md)は実装・Vitest確認済み。[通知ログ](learning/review-notification-log.md)は [PR #94](https://github.com/kushima-takeshi/code-learning-companion/pull/94) でマージ済み。このブランチで [詳細の復習状態](learning/web-learning-records.md) を実装。APIは実DB検証済み、画面はVitest確認済み。実メール送信は未完了 | 順序7〜8 |
 | 6. 削除・全体利用上限・公開前確認 | 未実装。既存の入力容量制限と、今後の累積容量・頻度制限を区別する | 順序9 |
 
 [PR #28](https://github.com/kushima-takeshi/code-learning-companion/pull/28)（連携トークン認証付きの学習記録保存・詳細取得API）は origin/main の `f51f8b0` でマージ済み。当時の origin/main（`32eba97`）から `codex/learning-record-save-detail-api` を作成し、既存の未コミットのレビュー引き継ぎメモは保全して引き継いだ。ユーザーは保存・詳細取得APIの契約に合意し、そのPR単位で直接実装・検証・コミット・プッシュ・PR作成まで進め、途中の実装や確認をユーザーへ振らないよう依頼した。その許可はPR #28の範囲に限る。[PR #30](https://github.com/kushima-takeshi/code-learning-companion/pull/30)（説明の型）もマージ済みで、機能の現在地は変えていない。[PR #29](https://github.com/kushima-takeshi/code-learning-companion/pull/29)（再接続のサーバー処理）は origin/main の `943c4eb` でマージ済み。範囲は保存先・開始／状態取得／完了／やり直しAPI・一覧成功との連携・排他制御・未完了24時間の拒否。ユーザーはそのPR単位で設計・直接実装・実DB検証・小さなコミット・プッシュ・PR作成まで任せ、途中の実装や確認をユーザーへ振らず進めるよう依頼した。その許可はPR #29の範囲に限る。作業ブランチは `f51f8b0` から `codex/connection-reconnect-api` を作成し、未追跡の説明画像`output/`は保全し、コミット対象に含めなかった。接続画面・MCP・定期整理・ブロック2全体の完了は後続とする。
@@ -49,16 +49,16 @@
 
 ## 次の一手
 
-今回の通知ログは、JSTの日付と08:00の境界、同日の再起動・並行実行、期限到来件数を PostgreSQL で確認した。定期処理の起動直後・失敗後の次回実行・停止もテストで確認した。`go vet ./...` と `go test ./... -count=1` は成功。
+[Issue #88](https://github.com/kushima-takeshi/code-learning-companion/issues/88) の詳細APIは、期限直前・ちょうど・到来後・全段階完了を実DBで確認した。期限一覧との一致と、Bearer詳細と保存応答の互換性も確認した。画面は Vitest で予定・完了の表示、期限到来時の保存・コピー、詳細から期限一覧APIを呼ばないことを確認した。
 
-次は実メール送信に向けて、同意・メール確認・配信停止・退会時削除の扱いと送信サービスを決める。
+次は実メール送信に向けて、同意・メール確認・配信停止・退会時削除の扱いと送信サービスを決める。ブロック4の詳細画面（PR #80）の実サーバー確認も残る。
 
-機能PRの前に書く4行の例（復習のメール通知の初回PR）
+機能PRの前に書く4行の例（Issue #88）
 
-- 決めたこと: 1日1回、08:00 JST以降に期限到来の復習があるユーザーごとに、件数とアプリへのリンクをログに出す。実メールは送らない。
-- 理由: 学習内容をメールに載せず、ユーザーごとに日本時間の通知日を記録して同日の二重通知を防ぐ。
-- 触る場所: Goサーバーの定期処理、通知記録テーブル、そのテスト。
-- 危ない点: 再起動時の二重通知、日本時間の日付の境目。
+- 決めたこと: Web 詳細APIが現在の段階・期限・完了を返す。結果保存・依頼文コピーのボタンは期限到来時に表示する。
+- 理由: 期限前は予定を確認できればよく、詳細で期限一覧を全件取得して照合する必要がなくなる。
+- 触る場所: 詳細API、詳細画面、それぞれのテスト、仕様04。
+- 危ない点: 期限一覧と段階・期限の計算がずれないこと、期限ちょうどの判定。
 
 PR取り込みは送信時のファイル入力欄から添付を読み、詳細画面から戻ったときの古い添付の送信を防ぐ。[Issue #81](https://github.com/kushima-takeshi/code-learning-companion/issues/81)
 

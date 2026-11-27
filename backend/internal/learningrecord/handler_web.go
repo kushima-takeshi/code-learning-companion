@@ -31,7 +31,7 @@ func (h *Handler) RegisterWebRoutes(mux *http.ServeMux, requireAuth func(http.Ha
 		})
 	}
 	mux.Handle("GET /web/learning-records", protect(h.listWeb))
-	mux.Handle("GET /web/learning-records/{id}", protect(h.getRecord))
+	mux.Handle("GET /web/learning-records/{id}", protect(h.getWeb))
 	mux.Handle("POST /web/learning-records/{id}/reviews", protect(h.saveReview))
 	mux.Handle("GET /web/reviews/due", protect(h.listDueReviews))
 	return nil

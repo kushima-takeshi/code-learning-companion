@@ -20,9 +20,9 @@ import (
 	"github.com/kushima-takeshi/code-learning-companion/backend/internal/connectiontoken"
 )
 
-func newListHTTP(t *testing.T) (*sql.DB, http.Handler, *connectiontoken.Service) {
+func newListHTTP(t *testing.T, extraMigrations ...string) (*sql.DB, http.Handler, *connectiontoken.Service) {
 	t.Helper()
-	db := newIntegrationDB(t)
+	db := newIntegrationDB(t, extraMigrations...)
 	body, err := os.ReadFile(filepath.Join("..", "..", "migrations", "000005_connection_tokens.up.sql"))
 	if err != nil {
 		t.Fatal(err)

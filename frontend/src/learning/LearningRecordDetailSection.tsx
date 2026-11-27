@@ -1,14 +1,21 @@
 import { useEffect, useRef, useState, type MouseEventHandler } from "react"
 import {
   getLearningRecord,
-  listDueReviews,
   reviewResults,
   saveReviewResult,
-  type DueReview,
   type LearningRecordDetail,
   type ReviewResult,
 } from "../api/learningRecords"
 import "./LearningRecordDetailSection.css"
+
+function reviewHeading(review: LearningRecordDetail["review"]) {
+  if (review.completed) return "復習完了"
+  const stage = `復習 ${review.stage}回目`
+  if (review.due) return stage
+
+  const deadline = new Date(review.due_at)
+  return `${stage}（期限 ${deadline.getMonth() + 1}月${deadline.getDate()}日）`
+}
 
 export function LearningRecordDetailSection({
   encodedRecordId,
@@ -22,11 +29,12 @@ export function LearningRecordDetailSection({
   onSessionExpired: () => void
 }) {
   const [result, setResult] = useState<LearningRecordDetail | "loading" | "not-found" | "failed">("loading")
-  const [dueReview, setDueReview] = useState<DueReview | "failed" | undefined>()
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [copyState, setCopyState] = useState<"copying" | "copied" | "failed">()
   const saveRequest = useRef<AbortController | null>(null)
+  const review = typeof result === "object" ? result.review : undefined
+  const canReview = review && !review.completed && review.due
 
   useEffect(() => {
     const controller = new AbortController()
@@ -46,24 +54,7 @@ export function LearningRecordDetailSection({
       }
     }
 
-    async function loadDueReview() {
-      try {
-        const records = await listDueReviews(controller.signal)
-        if (controller.signal.aborted) return
-
-        if (records === null) {
-          onSessionExpired()
-          return
-        }
-        const recordId = decodeURIComponent(encodedRecordId)
-        setDueReview(records.find((record) => record.id === recordId))
-      } catch {
-        if (!controller.signal.aborted) setDueReview("failed")
-      }
-    }
-
     void loadRecord()
-    void loadDueReview()
     return () => {
       controller.abort()
       saveRequest.current?.abort()
@@ -83,7 +74,7 @@ export function LearningRecordDetailSection({
   }
 
   async function handleSaveReview(reviewResult: ReviewResult) {
-    if (typeof dueReview !== "object" || saveRequest.current) return
+    if (!canReview || saveRequest.current) return
 
     const controller = new AbortController()
     saveRequest.current = controller
@@ -93,7 +84,7 @@ export function LearningRecordDetailSection({
     try {
       const outcome = await saveReviewResult(
         encodedRecordId,
-        { result: reviewResult, stage: dueReview.stage },
+        { result: reviewResult, stage: review.stage },
         controller.signal,
       )
       if (controller.signal.aborted) return
@@ -131,40 +122,41 @@ export function LearningRecordDetailSection({
               {new Date(result.created_at).toLocaleString()}
             </time>
           </p>
-          {dueReview === "failed" && <p role="alert">復習期限の一覧を取得できませんでした</p>}
-          {typeof dueReview === "object" && (
-            <section aria-labelledby="current-review-heading" className="current-review">
-              <h4 id="current-review-heading">復習 {dueReview.stage}回目</h4>
-              <p>
-                期限：
-                <time dateTime={dueReview.due_at}>{new Date(dueReview.due_at).toLocaleString()}</time>
-              </p>
-              <p>結果を保存しても復習期限は変わりません。</p>
-              <div className="review-results">
-                {reviewResults.map((reviewResult) => (
-                  <button
-                    key={reviewResult}
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void handleSaveReview(reviewResult)}
-                  >
-                    {reviewResult}
-                  </button>
-                ))}
-              </div>
-              {saveError && <p role="alert">{saveError}</p>}
-              <button
-                className="resume-copy-button"
-                type="button"
-                disabled={copyState === "copying"}
-                onClick={() => void handleCopyResumeRequest(dueReview.id)}
-              >
-                再開用の依頼文をコピー
-              </button>
-              {copyState === "copied" && <p role="status">コピーしました</p>}
-              {copyState === "failed" && <p role="alert">コピーできませんでした</p>}
-            </section>
-          )}
+          <section aria-labelledby="current-review-heading" className={canReview ? "current-review is-due" : "current-review"}>
+            <h4 id="current-review-heading">{reviewHeading(result.review)}</h4>
+            {canReview && (
+              <>
+                <p>
+                  期限：
+                  <time dateTime={review.due_at}>{new Date(review.due_at).toLocaleString()}</time>
+                </p>
+                <p>結果を保存しても復習期限は変わりません。</p>
+                <div className="review-results">
+                  {reviewResults.map((reviewResult) => (
+                    <button
+                      key={reviewResult}
+                      type="button"
+                      disabled={saving}
+                      onClick={() => void handleSaveReview(reviewResult)}
+                    >
+                      {reviewResult}
+                    </button>
+                  ))}
+                </div>
+                {saveError && <p role="alert">{saveError}</p>}
+                <button
+                  className="resume-copy-button"
+                  type="button"
+                  disabled={copyState === "copying"}
+                  onClick={() => void handleCopyResumeRequest(decodeURIComponent(encodedRecordId))}
+                >
+                  再開用の依頼文をコピー
+                </button>
+                {copyState === "copied" && <p role="status">コピーしました</p>}
+                {copyState === "failed" && <p role="alert">コピーできませんでした</p>}
+              </>
+            )}
+          </section>
           {result.questions.map(({ prompt, answer, feedback }, index) => (
             <section key={index} aria-labelledby={`question-${index}`}>
               <h4 id={`question-${index}`}>問題 {index + 1}</h4>

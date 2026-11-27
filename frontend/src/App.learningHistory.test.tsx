@@ -191,6 +191,7 @@ const detailPath = `/learning-records/${detailId}`
 const detailRecord: LearningRecordDetail = {
   ...record(detailId, "owner/repo"),
   request_id: "c221862c-0a37-4961-be89-7f1ff5e5edd7",
+  review: { completed: false, stage: 2, due_at: "2026-12-03T10:15:00Z", due: true },
   questions: [
     {
       type: "free_text",
@@ -208,13 +209,6 @@ const detailRecord: LearningRecordDetail = {
 }
 
 const emptyList = () => Response.json({ records: [], has_more: false })
-const dueReview = {
-  id: detailId,
-  theme: detailRecord.theme,
-  stage: 2,
-  due_at: "2026-12-03T10:15:00Z",
-}
-const dueWithReview = () => Response.json({ records: [dueReview] })
 
 it("期限一覧を履歴の上にAPI順で表示し、テーマから詳細を開く", async () => {
   const dueAt = "2026-11-22T10:15:00Z"
@@ -278,7 +272,6 @@ it("期限到来の復習を詳細で保存し、ホームで期限一覧を再�
   const response = Promise.withResolvers<Response>()
   const save = vi.fn(() => response.promise)
   const due = vi.fn(() => Response.json({ records: [] }))
-    .mockImplementationOnce(dueWithReview)
   installFetch(
     emptyList, true, () => Response.json(detailRecord), due, save,
   )
@@ -286,8 +279,9 @@ it("期限到来の復習を詳細で保存し、ホームで期限一覧を再�
   render(<App />)
 
   const review = within(await screen.findByRole("region", { name: "復習 2回目" }))
-  expect(review.getByText(new Date(dueReview.due_at).toLocaleString()))
-    .toHaveAttribute("datetime", dueReview.due_at)
+  const dueAt = "2026-12-03T10:15:00Z"
+  expect(review.getByText(new Date(dueAt).toLocaleString())).toHaveAttribute("datetime", dueAt)
+  expect(due).not.toHaveBeenCalled()
   expect(review.getByText("結果を保存しても復習期限は変わりません。")).toBeInTheDocument()
   const buttons = within(review.getByRole("button", { name: "できた" }).parentElement!)
     .getAllByRole("button")
@@ -310,7 +304,7 @@ it("期限到来の復習を詳細で保存し、ホームで期限一覧を再�
   expect(await homeDue.findByText("復習期限が来ている記録はありません")).toBeInTheDocument()
   expect(homeDue.queryByRole("link", { name: detailRecord.theme })).not.toBeInTheDocument()
   expect(window.location.pathname).toBe("/")
-  expect(due).toHaveBeenCalledTimes(2)
+  expect(due).toHaveBeenCalledTimes(1)
 })
 
 it.each([
@@ -320,7 +314,7 @@ it.each([
 ])("期限到来の詳細で再開用の依頼文をコピーする（$outcome）", async ({ clipboard, role, message }) => {
   window.history.replaceState(null, "", detailPath.replace(detailId, `%30${detailId.slice(1)}`))
   vi.stubGlobal("navigator", { clipboard })
-  installFetch(emptyList, true, () => Response.json(detailRecord), dueWithReview)
+  installFetch(emptyList, true, () => Response.json(detailRecord))
   render(<App />)
 
   const review = within(await screen.findByRole("region", { name: "復習 2回目" }))
@@ -341,7 +335,7 @@ it.each([
 ])("復習保存の $status を画面に反映する", async ({ status, error, message }) => {
   window.history.replaceState(null, "", detailPath)
   installFetch(
-    emptyList, true, () => Response.json(detailRecord), dueWithReview,
+    emptyList, true, () => Response.json(detailRecord), undefined,
     () => Response.json({ error }, { status }),
   )
   const user = userEvent.setup()
@@ -439,21 +433,38 @@ it.each([
   expect(form.get("file")).toBe(visitDetail ? null : file)
 })
 
-it("詳細URLを直接開き、リポジトリと期限到来がなければそれぞれの欄を省く", async () => {
+it("詳細URLを直接開き、リポジトリがない期限前の記録は復習予定を表示する", async () => {
   window.history.replaceState(null, "", detailPath)
   const list = vi.fn(emptyList)
+  const dueList = vi.fn(() => Response.json({ records: [] }))
+  const dueAt = "2026-12-03T00:15:00Z"
   installFetch(
-    list, true, () => Response.json({ ...detailRecord, repository: undefined }),
-    () => Response.json({ records: [{ ...dueReview, id: "another-record" }] }),
+    list, true, () => Response.json({
+      ...detailRecord,
+      repository: undefined,
+      review: { completed: false, stage: 3, due_at: dueAt, due: false },
+    }), dueList,
   )
   render(<App />)
 
-  expect(await screen.findByRole("heading", { name: detailRecord.theme })).toBeInTheDocument()
+  const deadline = new Date(dueAt)
+  const heading = `復習 3回目（期限 ${deadline.getMonth() + 1}月${deadline.getDate()}日）`
+  expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument()
   expect(screen.queryByText(/^リポジトリ/)).not.toBeInTheDocument()
-  expect(screen.queryByRole("region", { name: /^復習 .*回目$/ })).not.toBeInTheDocument()
-  expect(screen.queryByRole("button", { name: "できた" })).not.toBeInTheDocument()
-  expect(screen.queryByRole("button", { name: "再開用の依頼文をコピー" })).not.toBeInTheDocument()
+  expect(within(screen.getByRole("region", { name: heading })).queryByRole("button")).not.toBeInTheDocument()
   expect(list).not.toHaveBeenCalled()
+  expect(dueList).not.toHaveBeenCalled()
+})
+
+it("全段階が保存済みの詳細では復習完了を表示する", async () => {
+  window.history.replaceState(null, "", detailPath)
+  const dueList = vi.fn(() => Response.json({ records: [] }))
+  installFetch(emptyList, true, () => Response.json({ ...detailRecord, review: { completed: true } }), dueList)
+  render(<App />)
+
+  expect(await screen.findByRole("heading", { name: "復習完了" })).toBeInTheDocument()
+  expect(within(screen.getByRole("region", { name: "復習完了" })).queryByRole("button")).not.toBeInTheDocument()
+  expect(dueList).not.toHaveBeenCalled()
 })
 
 it("詳細取得中は読み込みを表示し、一覧へ戻れる", async () => {

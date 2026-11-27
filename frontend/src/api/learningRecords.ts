@@ -57,6 +57,7 @@ export async function listDueReviews(signal: AbortSignal): Promise<DueReview[] |
 
 export type LearningRecordDetail = LearningRecordSummary & {
   request_id: string
+  review: { completed: true } | { completed: false; stage: number; due_at: string; due: boolean }
   questions: {
     type: string
     prompt: string

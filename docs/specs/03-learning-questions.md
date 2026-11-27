@@ -150,7 +150,8 @@ GoからのAI呼び出し、AI APIキー入力、アプリ独自の回答・チ�
 ### アプリ画面用の学習記録API
 
 - 一覧は `GET /web/learning-records`、詳細は `GET /web/learning-records/{id}`。仕様07のWebトークン管理と同じセッション照合・オリジン保護を使う。両方の認証情報を送っても、所有者はセッションの本人。セッションなし・無効・期限切れは401 `unauthorized`。Web用の401に `WWW-Authenticate` は付けない。
-- 一覧の応答・ページ分割・並び順・不正クエリ、詳細の応答・UUID検証・404は上記Bearer APIと共通。両方とも記録に値があれば `repository` を返し、空なら省略する。
+- 一覧の応答・ページ分割・並び順・不正クエリ、詳細の記録部分・UUID検証・404は上記Bearer APIと共通。両方とも記録に値があれば `repository` を返し、空なら省略する。
+- Webの詳細は [仕様04の復習状態](04-review.md#詳細での復習状態) を `review` に追加する。Bearer の詳細は従来どおり記録だけを返す。
 - 登録した読み取りルートの成功・エラーはJSONと `Cache-Control: no-store`。セッション照合や記録取得のDB障害は500 `internal_error`。AIツール用の一覧・詳細・保存は従来どおりBearer認証で利用する。
 
 ## 未決事項
