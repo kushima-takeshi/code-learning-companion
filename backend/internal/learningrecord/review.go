@@ -31,16 +31,18 @@ const nextReviewStage = `
 	LIMIT 1
 `
 
+const reviewDueAt = `record.created_at + CASE next.stage
+	WHEN 1 THEN interval '72 hours'
+	WHEN 2 THEN interval '336 hours'
+	WHEN 3 THEN interval '720 hours'
+END`
+
 func (s *Service) listDueReviews(ctx context.Context, userID string) ([]dueReview, error) {
 	now := s.now()
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, theme, repository, stage, due_at
 		FROM (
-			SELECT record.id, record.theme, record.repository, next.stage, record.created_at + CASE next.stage
-				WHEN 1 THEN interval '72 hours'
-				WHEN 2 THEN interval '336 hours'
-				WHEN 3 THEN interval '720 hours'
-			END AS due_at
+			SELECT record.id, record.theme, record.repository, next.stage, `+reviewDueAt+` AS due_at
 			FROM learning_records AS record
 			CROSS JOIN LATERAL (`+nextReviewStage+`) AS next
 			WHERE record.user_id = $1 AND record.created_at <= $2
